@@ -6,7 +6,7 @@
 .RData
 .RDataTmp*
 
-
+samples/
 nohup.out
 
 .RData
