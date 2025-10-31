@@ -3,11 +3,22 @@ title: 'Lesson 1: Design Specification and Model Recovery'
 author: "Dr. Luke Strickland"
 date: "`r Sys.Date()`"
 output:
-  word_document: default
-  html_document: default
   pdf_document: default
+  html_document: default
+  word_document: default
 ---
 
+
+You can use renv to install the necessary packages for this tutorial within
+the R project. To do so, first restore the project environment by running:
+
+   install.packages("renv")
+   renv::restore()
+
+This will install all required packages in an isolated project library, 
+ensuring versions match those used when the tutorial was created.
+
+Otherwise, you may choose to install packages globally.
 The primary requirement for these scripts is the EMC2 package, 
 which can be installed from CRAN with install.packages("EMC2").Tidyverse packages 
 are also used for utility functions - specifically dplyr, tidyr, ggplot2, and 
