@@ -1,0 +1,933 @@
+---
+title: 'Lesson 2: A unified model of PM and automation use'
+author: "Dr. Luke Strickland"
+date: "`r Sys.Date()`"
+output:
+  pdf_document: default
+  html_document: default
+editor_options:
+  markdown:
+    wrap: 72
+---
+
+The primary requirement for these scripts is the EMC2 package, 
+which can be installed from CRAN with install.packages("EMC2").Tidyverse packages 
+are also used for utility functions - specifically dplyr, tidyr, ggplot2, and 
+stringr. These packages can all be installed from CRAN with install.packages.
+
+## Overview
+
+In this script, we demonstrate how to unify the PMDC model with a recently
+published model of automation use. We also step through the basic model testing
+and validation workflow. The original work and data evaluated is from
+an empirical study:
+
+-   Boag, Strickland, Heathcote & Loft (2025) The Use of Automated Decision Aids in Multi-Tasking Context.*Under Review*.
+    
+In the proposed model, automation-use affects accumulation rates in two potential ways:
+
+1) Excitation, where automation inputs increase accumulation towards
+recommended responses. 
+- *Excitation implies that accumulation rates
+should be faster than manual rates for the choice automation agrees
+with.*
+2) Inhibition, where automation inputs decrease accumulation
+towards opposing responses. 
+- *Inhibition implies accumulation rates should be slower than manual for the choice automation disagrees with.*
+
+As with the PMDC model, the possibility of proactive control over thresholds is included
+(larger thresholds in PM than control blocks).
+Furthermore, this proactive control is allowed to differ across conditions where participants
+perform the task manually versus when they work with automated advice.
+
+Boag et al. (2025) tested the model with an experiment. Participants performed
+an air traffic control conflict detection task, where they determined whether 
+aircraft pairs would violate safe separation standards during their flight. In some
+conditions, participants had a PM task. This required pressing an alternative key
+for targets with particular aircraft callsigns. In some conditions, participants were
+provided with an automated decision aid that recommends whether
+aircraft are in conflict or not. This decision aid was sometimes wrong. PM and 
+automation conditions were crossed within-subjects for each participant.
+
+**Boag et al. (2025) Design Factors**
+
+-   *Stimulus Type*: Conflict, Nonconflict, or PM
+-   *PM Block*: Control or PM
+-   *Automation Block*: Manual (Unaided) or Automation (Aided)
+-   *Automation Accuracy*: Correct or Incorrect
+
+
+
+## Load
+
+Load packages, bespoke utility functions and relevant data.
+
+```{r results='hide', message=FALSE}
+#Primary package for model fitting
+library(EMC2)
+#Data manipulation
+library(dplyr)
+#For plots
+library(ggplot2)
+#Some bespoke utility functions
+source("utility_functions.R")
+
+load("data/data_advanced.RData")
+load("img/exinhcm_PM.RData")
+load("img/Proactivecm_auto.RData")
+```
+
+
+
+The data set that will be analysed. It contains standard EMC2 columns, such as subjects,S for stimulus type
+(cc=conflict, nn=nonconflict, pc= PM target, conflict, pn= PM target, nonconflict),
+R for response (C= conflict, N= non-conflict, P=PM), and rt.
+
+Also, design-specific columns:
+
+-   `auto`: Did participants have an automated decision aid in that
+    block(auto) or not (manual)?
+-   `failtrial`: Did the automated advice recommend a correct decision
+    (AC) or incorrect (AI) on the particular trial?
+-   `PM`: PM or control conditions?
+
+```{r}
+head(dat)
+```
+
+
+## Contrasts
+
+Generally, accumulation-rate contrasts are similar to PMDC except that automation-informed contrasts are added in automation blocks:
+-  automation excitation is added to rates agreeing with automated advice (e.g., the matching accumulation rate when
+automation is correct)
+-  automation inhibition is subtracted from rates disagreeing with automated advice (e.g., the matching 
+accumulation rate when automation is incorrect)
+
+These contrasts are additional to the PM inhibition that is subtracted from ongoing task accumulation rates on PM target trials.
+
+ Unlike the last example,
+ongoing-task accumulation rates are not specified in terms of "quality"
+and "urgency" here, for simplicity. However, they could have been specified that way. 
+
+```{r}
+print_full_v_cm <- full_v_cm[apply(full_v_cm, 1, function(row) any(row != 0)), ]
+for(i in rownames(print_full_v_cm )){
+  print(read_rows(print_full_v_cm , i))
+}
+```
+
+In this example, proactive control over thresholds will also be coded
+using contrasts, rather than included as linear-model effects. It would also 
+have been possible to use linear-model syntax to interact automation conditions, PM conditions,
+and latent accumulator (lR).
+
+```{r}
+
+print_Proactivecm_auto <- Proactivecm_auto[
+  apply(Proactivecm_auto, 1, function(row) any(row != 0)), 
+  ]
+
+for(i in rownames(print_Proactivecm_auto)){
+  print(read_rows(print_Proactivecm_auto, i))
+}
+```
+
+## Model Specification
+
+
+We now demonstrate how to specify a model for this data set. It is similar to the
+first example, but requires including extra factors. 
+
+```{r results='hide'}
+
+match_fun <- function(d)
+  as.character(substr(d$S,1,1)) == tolower(
+    as.character(d$lR)
+  )
+
+design_advanced <- design(model=LBA, 
+                          # The applied data set
+                          data=dat,
+                          # The relevant factors for contrasts will match the 
+                          # row names in the contrast matrices.
+                          functions=list(
+                            SlR=function(d) factor(paste0(d$lR, d$S, d$AM, d$fail, d$PM),
+                                                   levels=rownames(full_v_cm)),
+                            PMlR=function(d) factor(paste0(d$lR, d$PM, d$AM),
+                                                    levels=rownames(Proactivecm_auto)),
+                            # Special "RACE" factor which will be used to deal with
+                            # the fact that PM has different number of accumulators to control
+                            RACE=function(d)factor(ifelse(d$PM=="control",2,3))
+                          ),
+                          # Supplying the contrast matrices
+                          contrasts = list(SlR=full_v_cm, PMlR =Proactivecm_auto),
+                          matchfun=match_fun,
+                          # Specifying how parameters vary, in this case by contrast matrices
+                          formula=list(v~SlR,B ~ PMlR,A ~ 1,t0 ~ 1,sv ~ lM),
+                          # Appropriate constants
+                          constants=c(sv=log(1),v=0, B=log(1))
+)
+```
+
+Setup a p_vector containing naive prior means
+
+```{r}
+p_vector <- sampled_pars(design_advanced)
+p_vector[grepl("B", names(p_vector))] <- log(1)
+p_vector[grepl("inh", names(p_vector))] <- 0
+p_vector[grepl("PMV", names(p_vector))] <- 1
+p_vector[grepl("McC", names(p_vector))] <- 1
+p_vector[grepl("MnN", names(p_vector))] <- 1
+p_vector[grepl("t0", names(p_vector))] <- log(0.4)
+
+n_vs <- length(p_vector[grepl("^v", names(p_vector))])
+n_Bs <- length(p_vector[grepl("B", names(p_vector))])
+
+psd=c(
+  #drifts
+  rep(2,n_vs),
+  #Bs,
+  rep(1,(n_Bs)),
+  #A, t0, sv true
+  1, 1, 1
+)
+
+
+```
+
+Create prior and then save the sampler object for later use
+
+```{r eval=FALSE}
+prior_advanced  <- prior(design_advanced,mu_mean=p_vector, mu_sd=psd)
+emc <- make_emc(dat, design_advanced, prior=prior_advanced)
+#save(emc,file="samples/sampler_advanced.RData")
+```
+
+
+#### **Sub-models**
+
+We fit a range of candidate models that might
+account for the advanced data set. 
+
+-   "Top" flexible model with full flexibility in PM and automation
+    mechanisms specified in the last contrasts scripts. Specified above
+
+-   A model that excludes the PM-inhibition mechanism
+
+-   A model that excludes the PM-induced proactive control mechanisms
+
+-   A model that excludes the automation use mechanisms
+
+These sub-model constraints are implemented by setting parameters to
+a constant, but could equally be created by re-specifying contrasts
+
+
+##### **No PM inhibition**
+
+No PM-inhibition mechanism for either auto or manual conditions. Set the PM inhibition parameters to 0.
+
+```{r results='hide'}
+design_advanced_noPMinh <- design(model=LBA, 
+                                  data=dat,
+                                  functions=list(
+                                    SlR=function(d) factor(paste0(d$lR, d$S, d$AM, d$fail, d$PM),
+                                                           levels=rownames(full_v_cm)),
+                                    PMlR=function(d) factor(paste0(d$lR, d$PM, d$AM),
+                                                            levels=rownames(Proactivecm_auto)),
+                                    RACE=function(d)factor(ifelse(d$PM=="control",2,3))
+                                  ),
+                                  contrasts = list(SlR=full_v_cm, PMlR =Proactivecm_auto),
+                                  matchfun=match_fun,
+                                  formula=list(v~SlR,B ~ PMlR,A ~ 1,t0 ~ 1,sv ~ lM),
+                                  constants=c(sv=log(1),v=0, B=log(1),
+                                              v_SlRMANPMinh=0,
+                                              v_SlRAUTOPMinh=0
+                                  )
+)
+
+p_vector_noPMinh <-
+  p_vector[!names(p_vector) %in% c("v_SlRMANPMinh", "v_SlRAUTOPMinh")]
+n_vs_noPMinh <- length(p_vector_noPMinh[grepl("^v", names(p_vector_noPMinh))])
+n_Bs_noPMinh <- length(p_vector_noPMinh[grepl("B", names(p_vector_noPMinh))])
+
+psd_noPMinh =c(
+  #drifts
+  rep(2,n_vs_noPMinh),
+  #Bs,
+  rep(1,(n_Bs_noPMinh)),
+  #A, t0, sv true
+  1, 1, 1
+)
+```
+
+```{r eval=FALSE}
+prior_advanced_noPMinh  <- prior(design_advanced_noPMinh,
+                                 mu_mean=p_vector_noPMinh, 
+                                 mu_sd=psd_noPMinh
+)
+emc <- make_emc(dat, design_advanced_noPMinh, prior=prior_advanced_noPMinh)
+#save(emc,file="samples/sampler_advanced_noPMinh.RData")
+```
+
+
+##### **No Proactive Control**
+
+No proactive control. Set the proactive control parameters to log(1) (i.e., 0).
+
+```{r results='hide'}
+design_advanced_noproactive <- design(model=LBA, 
+                                      data=dat,
+                                      functions=list(
+                                        SlR=function(d) factor(paste0(d$lR, d$S, d$AM, d$fail, d$PM),
+                                                               levels=rownames(full_v_cm)),
+                                        PMlR=function(d) factor(paste0(d$lR, d$PM, d$AM),
+                                                                levels=rownames(Proactivecm_auto)),
+                                        RACE=function(d)factor(ifelse(d$PM=="control",2,3))
+                                      ),
+                                      contrasts = list(SlR=full_v_cm, PMlR =Proactivecm_auto),
+                                      matchfun=match_fun,
+                                      formula=list(v~SlR,B ~ PMlR,A ~ 1,t0 ~ 1,sv ~ lM),
+                                      constants=c(sv=log(1),v=0, B=log(1), 
+                                                  B_PMlRmanualpaC=log(1),
+                                                  B_PMlRmanualpaN=log(1),
+                                                  B_PMlRautopaC=log(1),
+                                                  B_PMlRautopaN=log(1)
+                                      )
+)
+
+
+p_vector_noproactive <-
+  p_vector[!names(p_vector) %in% c("B_PMlRmanualpaC", "B_PMlRmanualpaN",
+                                   "B_PMlRautopaC", "B_PMlRautopaN")]
+n_vs_noproactive <- length(p_vector_noproactive[grepl("^v", names(p_vector_noproactive))])
+n_Bs_noproactive <- length(p_vector_noproactive[grepl("B", names(p_vector_noproactive))])
+
+
+psd_noproactive =c(
+  #drifts
+  rep(2,n_vs_noproactive),
+  #Bs,
+  rep(1,(n_Bs_noproactive)),
+  #A, t0, sv true
+  1, 1, 1
+)
+```
+
+```{r eval=FALSE}
+prior_advanced_noproactive  <- prior(design_advanced_noproactive,
+                                     mu_mean=p_vector_noproactive, 
+                                     mu_sd=psd_noproactive
+)
+emc <- make_emc(dat, design_advanced_noproactive, prior=prior_advanced_noproactive)
+
+#save(emc,file="samples/sampler_advanced_noproactive.RData")
+```
+
+##### **No Automation Use Mechanisms**
+
+Exclude automation-use mechanisms by fixing such parameters to 0.
+
+```{r results='hide'}
+design_advanced_noauto <- design(model=LBA, 
+                                 data=dat,
+                                 functions=list(
+                                   SlR=function(d) factor(paste0(d$lR, d$S, d$AM, d$fail, d$PM),
+                                                          levels=rownames(full_v_cm)),
+                                   PMlR=function(d) factor(paste0(d$lR, d$PM, d$AM),
+                                                           levels=rownames(Proactivecm_auto)),
+                                   RACE=function(d)factor(ifelse(d$PM=="control",2,3))
+                                 ),
+                                 contrasts = list(SlR=full_v_cm, PMlR =Proactivecm_auto),
+                                 matchfun=match_fun,
+                                 formula=list(v~SlR,B ~ PMlR,A ~ 1,t0 ~ 1,sv ~ lM),
+                                 constants=c(sv=log(1),v=0, B=log(1),
+                                             v_SlRPMAUTOex = 0, v_SlRPMAUTOinh =0,
+                                             v_SlRcontrolAUTOex = 0, v_SlRcontrolAUTOinh =0
+                                 )
+)
+
+p_vector_noauto <-
+  p_vector[!names(p_vector) %in% c("v_SlRPMAUTOex", "v_SlRPMAUTOinh",
+                                    "v_SlRcontrolAUTOex", "v_SlRcontrolAUTOinh")]
+
+n_vs_noauto <- length(p_vector_noauto[grepl("^v", names(p_vector_noauto))])
+n_Bs_noauto <- length(p_vector_noauto[grepl("B", names(p_vector_noauto))])
+
+psd_noauto =c(
+  #drifts
+  rep(2,n_vs_noauto),
+  #Bs,
+  rep(1,(n_Bs_noauto)),
+  #A, t0, sv true
+  1, 1, 1
+)
+```
+
+
+```{r eval=FALSE}
+prior_advanced_noauto  <- prior(design_advanced_noauto,
+                                mu_mean=p_vector_noauto, 
+                                mu_sd=psd_noauto
+)
+emc <- make_emc(dat, design_advanced_noauto, prior=prior_advanced_noauto)
+
+#save(emc,file="samples/sampler_advanced_noauto.RData")
+```
+
+## Model Evaluation
+
+Model workflow often involves a break for fitting times. Reload necessary
+functions. Tidyverse functions for summarizing data, predictions and plotting.
+
+```{r}
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(EMC2)
+theme_set(theme_bw())
+source("utility_functions.R")
+load("img/exinhcm_PM.RData")
+load("img/Proactivecm_auto.RData")
+```
+
+Load some utility functions not packaged in EMC but helpful for
+summarizing output
+
+-   Specifically, functions that take data and posterior predictives and
+    create summaries for fit plots
+-   EMC2 also has some built-in options, but the options here make plots
+    most consistent with previous publications of the PMDC model
+
+
+Load the top model and reload the necessary contrast matrices. Check the 
+top model converged adequately. 
+
+```{r}
+fit_advanced <- get(load("samples/sampler_advanced.RData"))
+```
+
+
+#### **Evaluate Posterior Predictive Fit**
+
+Get posterior predictives using EMC2's predict method. Save (can be slow and better
+to dispatch multi-core).
+```{r eval=FALSE}
+check(fit_advanced)
+pp <- predict(fit_advanced, n_cores=1)
+dat <- get_data(fit_advanced)
+#save(pp, dat, file= "samples/predicted_advanced.RData")
+```
+
+
+```{r}
+load("samples/predicted_advanced.RData")
+```
+
+EMC2 provides summary and plotting functions. However, is it also straightforward
+to extract data and posterior predictives to specify custom plots, each are provided
+simply as data frames. Here, we aim to 
+produce plots consistent with Boag et al. (2025). To that end, a non-EMC2 utility function,
+`calc_stat_postfit` takes `dat` and `pp` extracted from the EMC2 fit and summarizes
+based on a provided function.
+
+The custom function requires a data summary specified as function (here, accuracy),
+experimental factors to examine, and `stat_cols` that are required for the function (here S and R 
+are required to calculate accuracy). It returns summaries of the data and posterior predictives.
+By default, the grouped data frame is examined, providing information about average fit. The
+"subjects" column can also be applied to look at individual participants.
+
+```{r}
+acc_fun <- function(S, R){
+  mean(substr(S,1,1)==tolower(R))
+}
+
+acc_df <- calc_stat_postfit(dat, pp, facs=c("S", "AM", "fail", "PM"),
+                            stat_fn=acc_fun,
+                            stat_cols=c("S","R")
+)
+
+acc_df$AM_fail <- factor(
+  paste0(acc_df$AM, acc_df$fail),
+  levels=c( "manualAC", "autoAC","autoAI"),
+  labels=c("manual", "AC", "AI"))
+
+```
+
+
+
+Plots below visualize accuracy across
+automation and failure conditions (`AM_fail`), split by stimulus type
+(`S`) and PM condition.
+
+-   The first plot focuses on `"cc"` and `"nn"` trials, faceted by `S`
+    and `PM`.
+-   The second plot excludes those trials and shows remaining `S` types
+    side-by-side
+-   Dashed lines connect grouped conditions (`nam`)
+-   The black point layer (`stat`) provides comparison values (e.g.,
+    model predictions or alternative metrics)
+
+As plotted below, fits to both PM and ongoing-task accuracy look quite good. Fits are generally improved in 
+the Boag et al. (2025) paper, which specified a more complex model.
+
+```{r}
+acc_df %>% filter(S %in% c("cc","nn")) %>% ggplot(aes(AM_fail, postmn_stat)) +
+  geom_point(size=3)+ geom_errorbar(aes(ymax = upper, ymin = lower), width=0.5) +
+  geom_line(aes(group=1), linetype=2)+
+  geom_point(aes(y= stat), pch=21, size=4, colour="black")+
+  facet_grid(S~PM)  +ylab("Correct RT") +xlab("Automation") +ylab("Accuracy")+
+  theme(text = element_text(size = 22), axis.text=element_text(size=15))+ylim(0.5,1)
+```
+
+```{r}
+acc_df %>% filter(!S %in% c("cc","nn")) %>% ggplot(aes(AM_fail, postmn_stat)) +
+  geom_point(size=3)+ geom_errorbar(aes(ymax = upper, ymin = lower), width=0.5) +
+  geom_line(aes(group=1), linetype=2)+
+  geom_point(aes(y= stat), pch=21, size=4, colour="black")+
+  facet_grid(.~S)  +ylab("Correct RT") +xlab("Automation") +ylab("Accuracy")+
+  theme(text = element_text(size = 22), axis.text=element_text(size=15)) +ylim(0.5,1)
+```
+
+For RT, we wish to examine three aspects of RT distribution: 0.1 quantile,
+median (0.5 quantile), and 0.9 quantile. This gives an indiciation of distributional 
+fit. Another non-EMC2 convenience function `stack_stats_postfits` can apply 
+to get multiple summaries of data simultaneously and bind to a data frame.
+
+Requires:
+
+-   A list of functions (`corRT_fn_list`, defined earlier) to compute
+    the quantiles
+    `corRT_fn_list` computes the 10th,
+50th, and 90th percentiles of reaction times for error trials
+-   The columns to pass each function (`cols`). Equivalent to stat_cols in the earlier function
+-   Names of the resulting statistics for the outputted data frame
+
+```{r}
+corRT_fn_list <- c(function(S, R, rt){quantile(rt[toupper(substr(S,1,1))==R], probs=0.1, na.rm=T)},
+                   function(S, R, rt){quantile(rt[toupper(substr(S,1,1))==R], probs=0.5, na.rm=T)},
+                   function(S, R, rt){quantile(rt[toupper(substr(S,1,1))==R], probs=0.9, na.rm=T)}
+)
+
+cols <- c("S", "R", "rt")
+stat_col_list <- list(cols,cols,cols)
+stat_fn_names <- c("0.1", "0.5", "0.9")
+
+cRT_df <- stack_stat_postfits(
+  dat, pp, facs=c("S", "AM", "fail", "PM"), corRT_fn_list, stat_col_list, stat_fn_names
+) 
+
+cRT_df$AM_fail <- factor(
+  paste0(cRT_df$AM, cRT_df$fail),
+  levels=c( "manualAC", "autoAC","autoAI"),
+  labels=c("manual", "AC", "AI"))
+```
+
+Plots below show good distributional fits to correct RT, other than a small miss
+on the 0.9 quantile for the rare PM response times.
+
+```{r}
+cRT_df %>% filter(S %in% c("cc","nn")) %>%  ggplot(aes(AM_fail, postmn_stat)) +
+  geom_point(size=3)+ geom_errorbar(aes(ymax = upper, ymin = lower), width=0.5) +
+  geom_line(aes(group=nam), linetype=2)+
+  geom_point(aes(y= stat), pch=21, size=4, colour="black")+
+  facet_grid(S~PM)  +ylab("Correct RT")  +xlab("Automation")+
+  theme(text = element_text(size = 22), axis.text=element_text(size=15))
+
+cRT_df %>% filter(!S %in% c("cc","nn")) %>%  ggplot(aes(AM_fail, postmn_stat)) +
+  geom_point(size=3)+ geom_errorbar(aes(ymax = upper, ymin = lower), width=0.5) +
+  geom_line(aes(group=nam), linetype=2)+
+  geom_point(aes(y= stat), pch=21, size=4, colour="black")+
+  facet_grid(.~S)  +ylab("Correct RT")  +xlab("Automation")+
+  theme(text = element_text(size = 22), axis.text=element_text(size=15))
+```
+
+
+Error RTs visualized similarly below, except for PM trials due to this being a 
+rare type of response. 
+
+```{r}
+errRT_fn_list <- c(function(S, R, rt){quantile(rt[toupper(substr(S,1,1))!=R],
+                                               probs=0.1)},
+                   function(S, R, rt){quantile(rt[toupper(substr(S,1,1))!=R], 
+                                               probs=0.5)},
+                   function(S, R, rt){quantile(rt[toupper(substr(S,1,1))!=R], 
+                                               probs=0.9)}
+)
+
+eRT_df <- stack_stat_postfits(
+  dat, pp, facs=c("S", "AM", "fail", "PM"), errRT_fn_list, stat_col_list, stat_fn_names
+)
+
+eRT_df$AM_fail <- factor(
+  paste0(eRT_df$AM, eRT_df$fail),
+  levels=c( "manualAC", "autoAC","autoAI"),
+  labels=c("manual", "AC", "AI"))
+
+
+eRT_df %>% filter(S %in% c("cc","nn")) %>% ggplot(aes(AM_fail, postmn_stat)) + 
+  geom_point(size=3)+ geom_errorbar(aes(ymax = upper, ymin = lower), width=0.5) +
+  geom_line(aes(group=nam), linetype=2)+
+  geom_point(aes(y= stat), pch=21, size=4, colour="black")+
+  facet_grid(S~PM)  +ylab("Error RT") +
+  theme(text = element_text(size = 22), axis.text=element_text(size=15))
+```
+
+#### **Model Comparison**
+
+Test whether the model structure can be simplified. Smaller DIC/BPIC suggest
+a better fit to that model. DIC/BPIC also help to determine the relative contributions of different
+mechanisms to overall fit - larger differences in favour of a model suggest a stronger preference.
+
+
+```{r}
+fit_advanced_noauto <- 
+  get(load("samples/sampler_advanced_noauto.RData"))
+fit_advanced_noPMinh <- 
+  get(load("samples/sampler_advanced_noPMinh.RData"))
+fit_advanced_noproactive <- 
+  get(load("samples/sampler_advanced_noproactive.RData"))
+```
+
+All submodels converged in terms of Rhat <1.1 all parameters.
+```{r eval=FALSE}
+check(fit_advanced_noauto)
+check(fit_advanced_noPMinh)
+check(fit_advanced_noproactive)
+```
+
+
+Below uses EMC2's compare function to examine whether dropping mechanisms is supported.
+Both DIC and BPIC suggest that the top model, with full PM and
+automation-use mechanisms, is most supported. Thus, all the
+included mechanisms are useful for predicting the data.
+
+Bayes Factors could also have been calculated *by setting BayesFactor=TRUE), but they would require 
+more posterior samples and were not used by Boag et al. (2025). S,o we have not done so here.
+
+```{r}
+out <- compare(list(
+  top = fit_advanced,
+  noPMinh = fit_advanced_noPMinh,
+  noproactive = fit_advanced_noproactive,
+  noauto = fit_advanced_noauto
+), BayesFactor = FALSE)
+
+out$DIC <- out$DIC - out$DIC[1]
+out$BPIC <- out$BPIC - out$BPIC[1]
+out
+```
+
+#### **Model Parameter Summaries**
+
+Summarise the model parameters to understand the underlying mechanisms implied.
+
+1.  Extract population mean parameters from the full model
+2.  Plot the posterior means/ 95% credible intervals
+3.  Examine Bayesian p-values and Savage-Dickey Bayes Factors to evaluate effects
+
+EMC2's get_pars function extracts parameters, here we focus on 'mu' (population means).
+```{r}
+params <- data.frame(
+  get_pars(fit_advanced, selection="mu", merge_chains = T)$mu[[1]]
+)
+```
+
+First, examine the excitation and inhibition mechanisms, both involving
+automation and the PM task. 
+
+This reveals:
+-  strong PM inhibition in both auto and manual conditions
+-  strong automation inhibition in the PM condition, but less in control
+-  excitation strategy strong in control conditions, but not PM condition
+
+```{r}
+param_summaries <- params %>% pivot_longer(cols=colnames(params)) %>% 
+  group_by(name) %>% 
+  summarize(mn=mean(value), 
+            p025= quantile(value, probs=0.025),
+            p975=quantile(value, probs=0.975)
+  )
+
+exinh <- param_summaries  %>% filter(grepl(".*[ex|inh]$", name))
+
+exinh$name <- c("PM inhibition, auto condition", 
+                "PM inhibition, manual condition",
+                "Automation excitation, PM condition",
+                "Automation inhibition, PM condition",
+                "Automation excitation, control condition",
+                "Automation inhibition, control condition"
+)
+
+exinh  %>% 
+  ggplot(aes(x=name, y=mn, ymin=p025, ymax=p975))+
+  ylab("Effect")+ xlab("") +
+  geom_pointrange()+ 
+  geom_hline(yintercept=0, lty=2) +  # add a dotted line at x=1 after flip
+  coord_flip() +
+  theme(text = element_text(size = 18))
+
+
+```
+
+Calculating Bayesian p-value (posterior sample density <0) and 
+Savage-Dickey test (Bayes Factor of alternative vs null of 0) using EMC2's
+`credible` and `hypothesis` functions. 
+set.seed because there is some noise in sampling from the prior.
+```{r results='hide', fig.show = "hide"}
+
+set.seed(1234)
+PMInh_auto_p <- attr(
+  credible(x = fit_advanced, x_name = "v_SlRAUTOPMinh"), "less"
+)
+PMInh_auto_SD <- hypothesis(fit_advanced, parameter="v_SlRAUTOPMinh",  do_plot = F)
+
+
+PMInh_man_p <- attr(
+  credible(x = fit_advanced, x_name = "v_SlRMANPMinh"), "less"
+)
+PMInh_man_SD <- hypothesis(fit_advanced, parameter="v_SlRMANPMinh",  do_plot = F)
+
+
+AutoInh_PM_p <- attr(
+  credible(x = fit_advanced, x_name = "v_SlRPMAUTOinh"), "less"
+)
+AutoInh_PM_SD <- hypothesis(fit_advanced, parameter="v_SlRPMAUTOinh",  do_plot = F)
+
+AutoInh_control_p <- attr(
+  credible(x = fit_advanced, x_name = "v_SlRcontrolAUTOinh"), "less"
+)
+AutoInh_control_SD <- hypothesis(fit_advanced, parameter="v_SlRcontrolAUTOinh",  do_plot = F)
+
+
+AutoEx_PM_p <- attr(
+  credible(x = fit_advanced, x_name = "v_SlRPMAUTOex"), "less"
+)
+AutoEx_PM_SD <- hypothesis(fit_advanced, parameter="v_SlRPMAUTOex",  do_plot = F)
+
+
+AutoEx_control_p <- attr(
+  credible(x = fit_advanced, x_name = "v_SlRcontrolAUTOex"), "less"
+)
+AutoEx_control_SD <- hypothesis(fit_advanced, parameter="v_SlRcontrolAUTOex",  do_plot = F)
+
+#Differences are more complex so use bigger N
+PM_control_AutoInh_p <- attr(
+  credible(x = fit_advanced, x_fun = function(d) d["v_SlRPMAUTOinh"]
+         - d["v_SlRcontrolAUTOinh"]),
+  "less"
+)
+PM_control_AutoInh_SD <- hypothesis(
+  fit_advanced, fun=function(d) d["v_SlRPMAUTOinh"]
+           - d["v_SlRcontrolAUTOinh"], do_plot = F)
+
+PM_control_AutoEx_p <- attr(
+  credible(x = fit_advanced, x_fun = function(d) d["v_SlRcontrolAUTOex"] 
+         - d["v_SlRPMAUTOex"]), "less"
+)
+
+PM_control_AutoEx_SD <- hypothesis(fit_advanced, fun= function(d) 
+  exp(d["v_SlRcontrolAUTOex"]) - exp(d["v_SlRPMAUTOex"]), do_plot = F)
+```
+
+
+```{r}
+
+effnames <- c("PM inhibition, manual", "PM inhibition, auto",
+              "Auto inhibition, PM", "Auto inhibition, control",
+              "Auto excitation, PM", "Auto excitation, control",
+              "Auto inhibition, PM - Auto inhibition, control",
+              "Auto excitation, PM - Auto excitation, control")
+
+ps <- c(PMInh_auto_p, PMInh_man_p,AutoInh_PM_p, AutoInh_control_p,
+        AutoEx_PM_p, AutoEx_control_p, PM_control_AutoInh_p, 
+        PM_control_AutoEx_p)
+
+SDs <- c(PMInh_auto_SD, PMInh_man_SD,AutoInh_PM_SD, AutoInh_control_SD,
+        AutoEx_PM_SD, AutoEx_control_SD, PM_control_AutoInh_SD, 
+        PM_control_AutoEx_SD)
+
+df <- data.frame(Effect=effnames, p=round(ps, 3), SD= round(SDs, 3))
+
+df
+
+```
+Now examine proactive control. 
+This reveals:
+- strong proactive control of both accumulators in both conditions
+- weak tendency to less control in automation conditions
+
+```{r}
+proactive <- param_summaries %>% filter(grepl(".*pa.$", name))
+
+proactive$name <- c("Conflict Accumulator, Automation", 
+                    "Non-conflict Accumulator, Automation", 
+                    "Conflict Accumulator, Manual", 
+                    "Non-conflict Accumulator, Manual" 
+)
+
+proactive  %>% 
+  ggplot(aes(x=name, y=mn, ymin=p025, ymax=p975))+
+  ylab("Proactive Control Effect")+ xlab("") +
+  geom_pointrange()+ 
+  geom_hline(yintercept=0, lty=2) +  # add a dotted line at x=1 after flip
+  coord_flip() +theme(text=element_text(size=14)) 
+
+```
+
+Bayesian p values and SD tests.
+```{r results="hide", fig.show = "hide"}
+
+set.seed(1234)
+ProAutoC_p <- attr(credible(x = fit_advanced, x_name= "B_PMlRautopaC"),
+                 "less")
+ProAutoC_SD <- hypothesis(fit_advanced, parameter="B_PMlRautopaC",  do_plot = F)
+
+
+ProAutoN_p <- attr(credible(x = fit_advanced, x_name= "B_PMlRautopaN"),
+                 "less")
+ProAutoN_SD <- hypothesis(fit_advanced, parameter="B_PMlRautopaN",  do_plot = F)
+
+
+
+ProManC_p <- attr(credible(x = fit_advanced, x_name= "B_PMlRmanualpaC"),
+                 "less")
+ProManC_SD <- hypothesis(fit_advanced, parameter="B_PMlRmanualpaC",  do_plot = F)
+
+
+ProManN_p <- attr(credible(x = fit_advanced, x_name= "B_PMlRmanualpaN"),
+                 "less")
+ProManN_SD <- hypothesis(fit_advanced, parameter="B_PMlRmanualpaN",  do_plot = F)
+
+
+
+ProManAutoC_p <-  attr(credible(x = fit_advanced, x_fun = function(d) d["B_PMlRmanualpaC"] - d["B_PMlRautopaC"]
+         ), "less"
+)
+
+ProManAutoC_SD <-  hypothesis(fit_advanced, fun = function(d) d["B_PMlRmanualpaC"] - 
+             d["B_PMlRautopaC"],  do_plot = F
+)
+
+
+
+ProManAutoN_p <-  attr(credible(x = fit_advanced, x_fun = function(d) d["B_PMlRmanualpaN"] - d["B_PMlRautopaN"]
+         ), "less"
+)
+
+ProManAutoN_SD <-  hypothesis(fit_advanced, fun = function(d) d["B_PMlRmanualpaN"] - 
+             d["B_PMlRautopaN"],  do_plot = F
+)
+
+
+```
+
+Simple proactive-control effects are large, but note the interaction (manual - auto)
+is quite weak, with only a tendency for increase in manual not supported by p value
+or SD test.
+```{r}
+
+effnames <- c("Conflict, Automation", 
+              "Non-conflict, Automation", 
+               "Conflict, Manual", 
+              "Non-conflict, Manual",
+              "Conflict, Manual - Conflict, Automation",
+              "Non-conflict, Manual - Non-conflict, Automation")
+
+ps <- 
+  c(ProAutoC_p, ProAutoN_p, ProManC_p, ProManN_p, ProManAutoC_p,ProManAutoN_p)
+
+SDs <- 
+  c(ProAutoC_SD, ProAutoN_SD, ProManC_SD, ProManN_SD, ProManAutoC_SD,ProManAutoN_SD)
+
+df <- data.frame(Effect=effnames, p=round(ps, 3), SD= round(SDs, 3))
+
+df
+
+```
+
+New proactive control plot and new p-values (~0.01, ~0.02 for conflict and non-conflict,
+respectively).
+
+```{r}
+set.seed(1234)
+
+params_mapped <- data.frame(
+  get_pars(fit_advanced, selection="mu", merge_chains = T, map=T)$mu[[1]]
+)
+
+params_mapped$ProAC <- params_mapped$B_PMlRCPMauto - params_mapped$B_PMlRCcontrolauto 
+params_mapped$ProAN <- params_mapped$B_PMlRNPMauto - params_mapped$B_PMlRNcontrolauto 
+
+params_mapped$ProMC <- params_mapped$B_PMlRCPMmanual - params_mapped$B_PMlRCcontrolmanual 
+params_mapped$ProMN <- params_mapped$B_PMlRNPMmanual - params_mapped$B_PMlRNcontrolmanual
+
+params_mapped$ProMAC <- params_mapped$ProMC - params_mapped$ProAC 
+params_mapped$ProMAN <- params_mapped$ProMN - params_mapped$ProAN 
+
+
+params_mapped_summaries <- params_mapped %>% pivot_longer(cols=colnames(params_mapped )) %>% 
+  group_by(name) %>% 
+  summarize(mn=mean(value), 
+            p025= quantile(value, probs=0.025),
+            p975=quantile(value, probs=0.975)
+  )
+
+
+proactive <- params_mapped_summaries %>% filter(grepl("Pro", name) & !(name %in% c("ProMAC", "ProMAN")))
+
+proactive$name <- c("Conflict Accumulator, Automation", 
+                    "Non-conflict Accumulator, Automation", 
+                    "Conflict Accumulator, Manual", 
+                    "Non-conflict Accumulator, Manual" 
+)
+
+# Strong proactive control in both auto and manual conditions. Slightly
+# stronger for manual, perhaps due to strong automation-inhibition effects 
+# providing support in PM conditions
+
+proactive  %>% 
+  ggplot(aes(x=name, y=mn, ymin=p025, ymax=p975))+
+  ylab("Proactive Control Effect (Additive)")+ xlab("") +
+  geom_pointrange()+ 
+  geom_hline(yintercept=0, lty=2) +  # add a dotted line at x=1 after flip
+  coord_flip() 
+
+
+#Get p-values and Bayes Factors for the mapped, transformed values
+additive_ProManAutoC_p <-  attr(credible(x = fit_advanced, x_fun = function(d) (
+ 
+  (exp(d["B_PMlRmanualC"] +d["B_PMlRmanualpaC"])- exp(d["B_PMlRmanualC"]))  
+  - (exp(d["B_PMlRautoC"] +d["B_PMlRautopaC"]) -exp(d["B_PMlRautoC"]))
+  )
+), "less"
+)
+
+additive_ProManAutoC_SD <-  hypothesis(fit_advanced, fun = function(d) (
+ 
+  (exp(d["B_PMlRmanualC"] +d["B_PMlRmanualpaC"])- exp(d["B_PMlRmanualC"]))  
+  - (exp(d["B_PMlRautoC"] +d["B_PMlRautopaC"]) -exp(d["B_PMlRautoC"]))
+  ),  do_plot = F
+)
+
+additive_ProManAutoC_SD 
+  
+additive_ProManAutoN_p <-  attr(credible(x = fit_advanced, x_fun = function(d) (
+ 
+  (exp(d["B_PMlRmanualN"] +d["B_PMlRmanualpaN"])- exp(d["B_PMlRmanualN"]))  
+  - (exp(d["B_PMlRautoN"] +d["B_PMlRautopaN"]) -exp(d["B_PMlRautoN"]))
+  )
+), "less"
+)
+
+additive_ProManAutoN_SD <-  hypothesis(fit_advanced, fun = function(d) (
+ 
+  (exp(d["B_PMlRmanualN"] +d["B_PMlRmanualpaN"])- exp(d["B_PMlRmanualN"]))  
+  - (exp(d["B_PMlRautoN"] +d["B_PMlRautopaN"]) -exp(d["B_PMlRautoN"]))
+  ),  do_plot = F
+)
+
+additive_ProManAutoN_SD
+
+
+```

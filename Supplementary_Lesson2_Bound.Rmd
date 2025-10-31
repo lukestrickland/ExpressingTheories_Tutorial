@@ -1,0 +1,653 @@
+---
+title: 'Lesson 2: Supplementary, bounded parameters'
+author: "Dr. Luke Strickland"
+date: "`r Sys.Date()`"
+output:
+  pdf_document: default
+  html_document: default
+editor_options:
+  markdown:
+    wrap: 72
+---
+
+remotes::install_github("ampl-psych/EMC2", dependencies=TRUE, ref = "dev")
+
+## Overview
+
+Lesson 2 but with parameter bounds on excitation/inhibition introduced with a
+pre-transform. See Lesson2.Rmd for more details.
+
+## Load
+
+Load packages, bespoke utility functions and relevant data.
+
+```{r results='hide', message=FALSE}
+#Primary package for model fitting
+library(EMC2)
+#Data manipulation
+library(dplyr)
+#For plots
+library(ggplot2)
+#Some bespoke utility functions
+source("utility_functions.R")
+
+load("data/data_advanced.RData")
+load("img/exinhcm_PM.RData")
+load("img/Proactivecm_auto.RData")
+```
+
+
+## Model Specification
+
+Bounds implemented with pre-transforms.
+
+Full model:
+
+```{r results='hide'}
+
+match_fun <- function(d)
+  as.character(substr(d$S,1,1)) == tolower(
+    as.character(d$lR)
+  )
+
+design_advanced <- design(model=LBA, 
+                          data=dat,
+                          functions=list(
+                            SlR=function(d) factor(paste0(d$lR, d$S, d$AM, d$fail, d$PM),
+                                                   levels=rownames(full_v_cm)),
+                            PMlR=function(d) factor(paste0(d$lR, d$PM, d$AM),
+                                                    levels=rownames(Proactivecm_auto)),
+                            RACE=function(d)factor(ifelse(d$PM=="control",2,3))
+                          ),
+                          contrasts = list(SlR=full_v_cm, PMlR =Proactivecm_auto),
+                          matchfun=match_fun,
+                          formula=list(v~SlR,B ~ PMlR,A ~ 1,t0 ~ 1,sv ~ lM),
+                          constants=c(sv=log(1),v=0, B=log(1)
+                          ),
+                          #Bounds implemented by putting "exp" pre-transform on
+                          # excitation and inhibition parameters.
+                          pre_transform = list(func = c(v_SlRcontrolAUTOex = "exp",
+                            v_SlRcontrolAUTOinh = "exp",v_SlRPMAUTOex = "exp",v_SlRPMAUTOinh = "exp",
+                            v_SlRAUTOPMinh = "exp", v_SlRMANPMinh = "exp"))
+)
+```
+
+```{r}
+p_vector <- sampled_pars(design_advanced)
+p_vector[grepl("B", names(p_vector))] <- log(1)
+#Prior inh 0 i.e., log(1)
+p_vector[grepl("inh", names(p_vector))] <- 0
+p_vector[grepl("PMV", names(p_vector))] <- 1
+p_vector[grepl("McC", names(p_vector))] <- 1
+p_vector[grepl("MnN", names(p_vector))] <- 1
+p_vector[grepl("t0", names(p_vector))] <- log(0.4)
+
+n_vs <- length(p_vector[grepl("^v", names(p_vector))])
+n_Bs <- length(p_vector[grepl("B", names(p_vector))])
+
+psd=c(
+  #drifts
+  rep(2,n_vs),
+  #Bs,
+  rep(1,(n_Bs)),
+  #A, t0, sv true
+  1, 1, 1
+)
+
+
+```
+
+```{r eval=FALSE}
+prior_advanced  <- prior(design_advanced,mu_mean=p_vector, mu_sd=psd)
+emc <- make_emc(dat, design_advanced, prior=prior_advanced)
+#save(emc,file="samples/sampler_advanced_bound.RData")
+```
+
+
+#### **Sub-models**
+
+##### **No PM inhibition**
+
+```{r results='hide'}
+design_advanced_noPMinh <- design(model=LBA, 
+                                  data=dat,
+                                  functions=list(
+                                    SlR=function(d) factor(paste0(d$lR, d$S, d$AM, d$fail, d$PM),
+                                                           levels=rownames(full_v_cm)),
+                                    PMlR=function(d) factor(paste0(d$lR, d$PM, d$AM),
+                                                            levels=rownames(Proactivecm_auto)),
+                                    RACE=function(d)factor(ifelse(d$PM=="control",2,3))
+                                  ),
+                                  contrasts = list(SlR=full_v_cm, PMlR =Proactivecm_auto),
+                                  matchfun=match_fun,
+                                  formula=list(v~SlR,B ~ PMlR,A ~ 1,t0 ~ 1,sv ~ lM),
+                                  constants=c(sv=log(1),v=0, B=log(1),
+                                              v_SlRMANPMinh=0,
+                                              v_SlRAUTOPMinh=0
+                                  ),
+                          pre_transform = list(func = c(v_SlRcontrolAUTOex = "exp",
+                            v_SlRcontrolAUTOinh = "exp",v_SlRPMAUTOex = "exp",v_SlRPMAUTOinh = "exp"))
+)
+
+p_vector_noPMinh <-
+  p_vector[!names(p_vector) %in% c("v_SlRMANPMinh", "v_SlRAUTOPMinh")]
+n_vs_noPMinh <- length(p_vector_noPMinh[grepl("^v", names(p_vector_noPMinh))])
+n_Bs_noPMinh <- length(p_vector_noPMinh[grepl("B", names(p_vector_noPMinh))])
+
+psd_noPMinh =c(
+  #drifts
+  rep(2,n_vs_noPMinh),
+  #Bs,
+  rep(1,(n_Bs_noPMinh)),
+  #A, t0, sv true
+  1, 1, 1
+)
+```
+
+```{r eval=FALSE}
+prior_advanced_noPMinh  <- prior(design_advanced_noPMinh,
+                                 mu_mean=p_vector_noPMinh, 
+                                 mu_sd=psd_noPMinh
+)
+emc <- make_emc(dat, design_advanced_noPMinh, prior=prior_advanced_noPMinh)
+#save(emc,file="samples/sampler_advanced_bound_noPMinh.RData")
+```
+
+##### **No Proactive Control**
+
+```{r results='hide'}
+design_advanced_noproactive <- design(model=LBA, 
+                                      data=dat,
+                                      functions=list(
+                                        SlR=function(d) factor(paste0(d$lR, d$S, d$AM, d$fail, d$PM),
+                                                               levels=rownames(full_v_cm)),
+                                        PMlR=function(d) factor(paste0(d$lR, d$PM, d$AM),
+                                                                levels=rownames(Proactivecm_auto)),
+                                        RACE=function(d)factor(ifelse(d$PM=="control",2,3))
+                                      ),
+                                      contrasts = list(SlR=full_v_cm, PMlR =Proactivecm_auto),
+                                      matchfun=match_fun,
+                                      formula=list(v~SlR,B ~ PMlR,A ~ 1,t0 ~ 1,sv ~ lM),
+                                      constants=c(sv=log(1),v=0, B=log(1), 
+                                                  B_PMlRmanualpaC=log(1),
+                                                  B_PMlRmanualpaN=log(1),
+                                                  B_PMlRautopaC=log(1),
+                                                  B_PMlRautopaN=log(1)
+                                      ),
+                          pre_transform = list(func = c(v_SlRcontrolAUTOex = "exp",
+                            v_SlRcontrolAUTOinh = "exp",v_SlRPMAUTOex = "exp",v_SlRPMAUTOinh = "exp",
+                            v_SlRAUTOPMinh = "exp", v_SlRMANPMinh = "exp"))
+)
+
+
+p_vector_noproactive <-
+  p_vector[!names(p_vector) %in% c("B_PMlRmanualpaC", "B_PMlRmanualpaN",
+                                   "B_PMlRautopaC", "B_PMlRautopaN")]
+n_vs_noproactive <- length(p_vector_noproactive[grepl("^v", names(p_vector_noproactive))])
+n_Bs_noproactive <- length(p_vector_noproactive[grepl("B", names(p_vector_noproactive))])
+
+
+psd_noproactive =c(
+  #drifts
+  rep(2,n_vs_noproactive),
+  #Bs,
+  rep(1,(n_Bs_noproactive)),
+  #A, t0, sv true
+  1, 1, 1
+)
+```
+
+```{r eval=FALSE}
+prior_advanced_noproactive  <- prior(design_advanced_noproactive,
+                                     mu_mean=p_vector_noproactive, 
+                                     mu_sd=psd_noproactive
+)
+emc <- make_emc(dat, design_advanced_noproactive, prior=prior_advanced_noproactive)
+
+#save(emc,file="samples/sampler_advanced_bound_noproactive.RData")
+```
+
+##### **No Automation Use Mechanisms**
+
+```{r results='hide'}
+design_advanced_noauto <- design(model=LBA, 
+                                 data=dat,
+                                 functions=list(
+                                   SlR=function(d) factor(paste0(d$lR, d$S, d$AM, d$fail, d$PM),
+                                                          levels=rownames(full_v_cm)),
+                                   PMlR=function(d) factor(paste0(d$lR, d$PM, d$AM),
+                                                           levels=rownames(Proactivecm_auto)),
+                                   RACE=function(d)factor(ifelse(d$PM=="control",2,3))
+                                 ),
+                                 contrasts = list(SlR=full_v_cm, PMlR =Proactivecm_auto),
+                                 matchfun=match_fun,
+                                 formula=list(v~SlR,B ~ PMlR,A ~ 1,t0 ~ 1,sv ~ lM),
+                                 constants=c(sv=log(1),v=0, B=log(1),
+                                             v_SlRPMAUTOex = 0, v_SlRPMAUTOinh =0,
+                                             v_SlRcontrolAUTOex = 0, v_SlRcontrolAUTOinh =0
+                                 ),
+                          pre_transform = list(func = c(
+                            v_SlRAUTOPMinh = "exp", v_SlRMANPMinh = "exp"))
+)
+
+p_vector_noauto <-
+  p_vector[!names(p_vector) %in% c("v_SlRPMAUTOex", "v_SlRPMAUTOinh",
+                                    "v_SlRcontrolAUTOex", "v_SlRcontrolAUTOinh")]
+
+n_vs_noauto <- length(p_vector_noauto[grepl("^v", names(p_vector_noauto))])
+n_Bs_noauto <- length(p_vector_noauto[grepl("B", names(p_vector_noauto))])
+
+psd_noauto =c(
+  #drifts
+  rep(2,n_vs_noauto),
+  #Bs,
+  rep(1,(n_Bs_noauto)),
+  #A, t0, sv true
+  1, 1, 1
+)
+```
+
+```{r eval=FALSE}
+prior_advanced_noauto  <- prior(design_advanced_noauto,
+                                mu_mean=p_vector_noauto, 
+                                mu_sd=psd_noauto
+)
+emc <- make_emc(dat, design_advanced_noauto, prior=prior_advanced_noauto)
+
+#save(emc,file="samples/sampler_advanced_bound_noauto.RData")
+```
+
+##### **No Automation-Excitation, PM condition**
+
+No excitation from automation specifically in the PM condition. Parameter estimates 
+suggested fitting this model - low population-mean parameter (~0).
+
+```{r results='hide'}
+
+design_noautoexPM <- design(model=LBA, 
+                          data=dat,
+                          functions=list(
+                            SlR=function(d) factor(paste0(d$lR, d$S, d$AM, d$fail, d$PM),
+                                                   levels=rownames(full_v_cm)),
+                            PMlR=function(d) factor(paste0(d$lR, d$PM, d$AM),
+                                                    levels=rownames(Proactivecm_auto)),
+                            RACE=function(d)factor(ifelse(d$PM=="control",2,3))
+                          ),
+                          contrasts = list(SlR=full_v_cm, PMlR =Proactivecm_auto),
+                          matchfun=match_fun,
+                          formula=list(v~SlR,B ~ PMlR,A ~ 1,t0 ~ 1,sv ~ lM),
+                          constants=c(sv=log(1),v=0, B=log(1),
+                                             v_SlRPMAUTOex = 0
+                          ),
+                          pre_transform = list(func = c(v_SlRcontrolAUTOex = "exp",
+                            v_SlRcontrolAUTOinh = "exp",v_SlRPMAUTOinh = "exp",
+                            v_SlRAUTOPMinh = "exp", v_SlRMANPMinh = "exp"))
+)
+```
+
+```{r}
+p_vector_noautoexPM <-
+  p_vector[!names(p_vector) %in% c("v_SlRPMAUTOex")]
+n_vs_noautoexPM <- length(p_vector_noautoexPM[grepl("^v", names(p_vector_noautoexPM))])
+n_Bs_noautoexPM <- length(p_vector_noautoexPM[grepl("B", names(p_vector_noautoexPM))])
+
+psd_noautoexPM =c(
+  #drifts
+  rep(2,n_vs_noautoexPM ),
+  #Bs,
+  rep(1,(n_Bs_noautoexPM)),
+  #A, t0, sv true
+  1, 1, 1
+)
+
+
+```
+
+
+```{r eval=FALSE}
+prior_noautoexPM  <- prior(design_noautoexPM,mu_mean=p_vector_noautoexPM, mu_sd=psd_noautoexPM)
+emc <- make_emc(dat, design_noautoexPM, prior=prior_noautoexPM)
+# save(emc,file="samples/sampler_noautoexPMa.RData")
+```
+
+
+## Model Evaluation
+
+
+```{r}
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(EMC2)
+theme_set(theme_bw())
+source("utility_functions.R")
+load("img/exinhcm_PM.RData")
+load("img/Proactivecm_auto.RData")
+```
+
+```{r}
+fit_advanced <- get(load("samples/sampler_advanced_bound.RData"))
+```
+
+
+#### **Evaluate Posterior Predictive Fit**
+
+Predictives specifically for the bounded case.
+```{r eval=FALSE}
+check(fit_advanced)
+pp <- predict(fit_advanced, n_cores=1)
+dat <- get_data(fit_advanced)
+#save(pp, dat, file= "samples/predicted_advanced_bound.RData")
+```
+
+
+```{r}
+load("samples/predicted_advanced_bound.RData")
+```
+
+Fits with the theoretically plausible bounds look good.
+
+```{r}
+acc_fun <- function(S, R){
+  mean(substr(S,1,1)==tolower(R))
+}
+
+acc_df <- calc_stat_postfit(dat, pp, facs=c("S", "AM", "fail", "PM"),
+                            stat_fn=acc_fun,
+                            stat_cols=c("S","R")
+)
+
+acc_df$AM_fail <- factor(
+  paste0(acc_df$AM, acc_df$fail),
+  levels=c( "manualAC", "autoAC","autoAI"),
+  labels=c("manual", "AC", "AI"))
+
+```
+
+```{r}
+acc_df %>% filter(S %in% c("cc","nn")) %>% ggplot(aes(AM_fail, postmn_stat)) +
+  geom_point(size=3)+ geom_errorbar(aes(ymax = upper, ymin = lower), width=0.5) +
+  geom_line(aes(group=1), linetype=2)+
+  geom_point(aes(y= stat), pch=21, size=4, colour="black")+
+  facet_grid(S~PM)  +ylab("Correct RT") +xlab("Automation") +ylab("Accuracy")+
+  theme(text = element_text(size = 22), axis.text=element_text(size=15))+ylim(0.5,1)
+```
+
+```{r}
+acc_df %>% filter(!S %in% c("cc","nn")) %>% ggplot(aes(AM_fail, postmn_stat)) +
+  geom_point(size=3)+ geom_errorbar(aes(ymax = upper, ymin = lower), width=0.5) +
+  geom_line(aes(group=1), linetype=2)+
+  geom_point(aes(y= stat), pch=21, size=4, colour="black")+
+  facet_grid(.~S)  +ylab("Correct RT") +xlab("Automation") +ylab("Accuracy")+
+  theme(text = element_text(size = 22), axis.text=element_text(size=15)) +ylim(0.5,1)
+```
+
+```{r}
+corRT_fn_list <- c(function(S, R, rt){quantile(rt[toupper(substr(S,1,1))==R], probs=0.1, na.rm=T)},
+                   function(S, R, rt){quantile(rt[toupper(substr(S,1,1))==R], probs=0.5, na.rm=T)},
+                   function(S, R, rt){quantile(rt[toupper(substr(S,1,1))==R], probs=0.9, na.rm=T)}
+)
+
+cols <- c("S", "R", "rt")
+stat_col_list <- list(cols,cols,cols)
+stat_fn_names <- c("0.1", "0.5", "0.9")
+
+cRT_df <- stack_stat_postfits(
+  dat, pp, facs=c("S", "AM", "fail", "PM"), corRT_fn_list, stat_col_list, stat_fn_names
+) 
+
+cRT_df$AM_fail <- factor(
+  paste0(cRT_df$AM, cRT_df$fail),
+  levels=c( "manualAC", "autoAC","autoAI"),
+  labels=c("manual", "AC", "AI"))
+```
+
+```{r}
+cRT_df %>% filter(S %in% c("cc","nn")) %>%  ggplot(aes(AM_fail, postmn_stat)) +
+  geom_point(size=3)+ geom_errorbar(aes(ymax = upper, ymin = lower), width=0.5) +
+  geom_line(aes(group=nam), linetype=2)+
+  geom_point(aes(y= stat), pch=21, size=4, colour="black")+
+  facet_grid(S~PM)  +ylab("Correct RT")  +xlab("Automation")+
+  theme(text = element_text(size = 22), axis.text=element_text(size=15))
+
+cRT_df %>% filter(!S %in% c("cc","nn")) %>%  ggplot(aes(AM_fail, postmn_stat)) +
+  geom_point(size=3)+ geom_errorbar(aes(ymax = upper, ymin = lower), width=0.5) +
+  geom_line(aes(group=nam), linetype=2)+
+  geom_point(aes(y= stat), pch=21, size=4, colour="black")+
+  facet_grid(.~S)  +ylab("Correct RT")  +xlab("Automation")+
+  theme(text = element_text(size = 22), axis.text=element_text(size=15))
+```
+
+```{r}
+errRT_fn_list <- c(function(S, R, rt){quantile(rt[toupper(substr(S,1,1))!=R],
+                                               probs=0.1)},
+                   function(S, R, rt){quantile(rt[toupper(substr(S,1,1))!=R], 
+                                               probs=0.5)},
+                   function(S, R, rt){quantile(rt[toupper(substr(S,1,1))!=R], 
+                                               probs=0.9)}
+)
+
+eRT_df <- stack_stat_postfits(
+  dat, pp, facs=c("S", "AM", "fail", "PM"), errRT_fn_list, stat_col_list, stat_fn_names
+)
+
+eRT_df$AM_fail <- factor(
+  paste0(eRT_df$AM, eRT_df$fail),
+  levels=c( "manualAC", "autoAC","autoAI"),
+  labels=c("manual", "AC", "AI"))
+
+
+eRT_df %>% filter(S %in% c("cc","nn")) %>% ggplot(aes(AM_fail, postmn_stat)) + 
+  geom_point(size=3)+ geom_errorbar(aes(ymax = upper, ymin = lower), width=0.5) +
+  geom_line(aes(group=nam), linetype=2)+
+  geom_point(aes(y= stat), pch=21, size=4, colour="black")+
+  facet_grid(S~PM)  +ylab("Error RT") +
+  theme(text = element_text(size = 22), axis.text=element_text(size=15))
+```
+
+#### **Model Comparison**
+
+Similar model-comparison results to in text. Interestingly, a model with no automation-excitation
+specifically in PM conditions is preferred above the most flexible.
+
+```{r}
+fit_advanced_noauto <- 
+  get(load("samples/sampler_advanced_bound_noauto.RData"))
+fit_advanced_noPMinh <- 
+  get(load("samples/sampler_advanced_bound_noPMinh.RData"))
+fit_advanced_noproactive <- 
+  get(load("samples/sampler_advanced_bound_noproactive.RData"))
+fit_advanced_noautoexPM <- 
+  get(load("samples/sampler_advanced_bound_noautoexPM.RData"))
+```
+
+All submodels converged in terms of Rhat <1.1 all parameters.
+```{r eval=FALSE}
+check(fit_advanced_noauto)
+check(fit_advanced_noPMinh)
+check(fit_advanced_noproactive)
+```
+
+```{r}
+out <- compare(list(
+  top = fit_advanced,
+  noPMinh = fit_advanced_noPMinh,
+  noproactive = fit_advanced_noproactive,
+  noauto = fit_advanced_noauto,
+  noautoex_PM = fit_advanced_noautoexPM
+), BayesFactor = FALSE)
+
+out$DIC <- out$DIC - out$DIC[5]
+out$BPIC <- out$BPIC - out$BPIC[5]
+round(out[,1:4],2)
+```
+
+#### **Model Parameter Summaries**
+
+Similar results to in text (except the automation-excitation can't be negative at all
+due to the bound)/
+```{r}
+params <- data.frame(
+  get_pars(fit_advanced, selection="mu", merge_chains = T)$mu[[1]]
+)
+```
+
+```{r}
+param_summaries <- params %>% pivot_longer(cols=colnames(params)) %>% 
+  group_by(name) %>% 
+  summarize(mn=mean(exp(value)), 
+            p025= quantile(exp(value), probs=0.025),
+            p975=quantile(exp(value), probs=0.975)
+  )
+
+exinh <- param_summaries  %>% filter(grepl(".*[ex|inh]$", name))
+
+exinh$name <- c("PM inhibition, auto condition", 
+                "PM inhibition, manual condition",
+                "Automation excitation, PM condition",
+                "Automation inhibition, PM condition",
+                "Automation excitation, control condition",
+                "Automation inhibition, control condition"
+)
+
+exinh  %>% 
+  ggplot(aes(x=name, y=mn, ymin=p025, ymax=p975))+
+  ylab("exp(Effect)")+ xlab("") +
+  geom_pointrange()+ 
+  geom_hline(yintercept=0, lty=2) +  # add a dotted line at x=1 after flip
+  coord_flip() +
+  theme(text = element_text(size = 18))
+
+
+```
+
+Less Bayesian p-values and Savage-Dickey tests are included here. The simple 
+effects with theory-informed bounds can never be 0 or below and therefore there 
+is no point testing for that.
+
+Also, tests now involve exponentiating out the pre-transform .
+```{r fig.show = "hide"}
+
+set.seed(1234)
+
+PM_control_AutoInh_p <- attr(
+  credible(x = fit_advanced, x_fun = function(d) exp(d["v_SlRPMAUTOinh"])
+         - exp(d["v_SlRcontrolAUTOinh"])),
+  "less"
+)
+PM_control_AutoInh_SD <- hypothesis(
+  fit_advanced, fun=function(d) exp(d["v_SlRPMAUTOinh"])
+           - exp(d["v_SlRcontrolAUTOinh"]), do_plot = F)
+
+PM_control_AutoInh_SD
+
+PM_control_AutoEx_p <- attr(
+  credible(x = fit_advanced, x_fun = function(d) exp(d["v_SlRcontrolAUTOex"]) 
+         - exp(d["v_SlRPMAUTOex"])), "less"
+)
+
+PM_control_AutoEx_SD <- hypothesis(fit_advanced, fun= function(d) 
+  exp(d["v_SlRcontrolAUTOex"]) - exp(d["v_SlRPMAUTOex"]), do_plot = F)
+
+PM_control_AutoEx_SD 
+```
+
+
+```{r}
+proactive <- param_summaries %>% filter(grepl(".*pa.$", name))
+
+proactive$name <- c("Conflict Accumulator, Automation", 
+                    "Non-conflict Accumulator, Automation", 
+                    "Conflict Accumulator, Manual", 
+                    "Non-conflict Accumulator, Manual" 
+)
+
+proactive  %>% 
+  ggplot(aes(x=name, y=mn, ymin=p025, ymax=p975))+
+  ylab("Proactive Control Effect")+ xlab("") +
+  geom_pointrange()+ 
+  geom_hline(yintercept=0, lty=2) +  # add a dotted line at x=1 after flip
+  coord_flip() 
+
+```
+
+```{r fig.show = "hide"}
+set.seed(1234)
+
+ProAutoC_p <- attr(credible(x = fit_advanced, x_name= "B_PMlRautopaC"),
+                 "less")
+ProAutoC_SD <- hypothesis(fit_advanced, parameter="B_PMlRautopaC", do_plot = F)
+ProAutoC_SD 
+
+ProAutoN_p <- attr(credible(x = fit_advanced, x_name= "B_PMlRautopaN"),
+                 "less")
+ProAutoN_SD <- hypothesis(fit_advanced, parameter="B_PMlRautopaN", do_plot = F)
+ProAutoN_SD
+
+
+ProManC_p <- attr(credible(x = fit_advanced, x_name= "B_PMlRmanualpaC"),
+                 "less")
+ProManC_SD <- hypothesis(fit_advanced, parameter="B_PMlRmanualpaC", do_plot = F)
+ProManC_SD
+
+ProManN_p <- attr(credible(x = fit_advanced, x_name= "B_PMlRmanualpaN"),
+                 "less")
+ProManN_SD <- hypothesis(fit_advanced, parameter="B_PMlRmanualpaN", do_plot = F)
+ProManN_SD
+
+
+ProManAutoC_p <-  attr(credible(x = fit_advanced, x_fun = function(d) d["B_PMlRmanualpaC"] - d["B_PMlRautopaC"]
+         ), "less"
+)
+
+ProManAutoC_SD <-  hypothesis(fit_advanced, fun = function(d) d["B_PMlRmanualpaC"] - 
+             d["B_PMlRautopaC"], do_plot = F
+)
+ProManAutoC_SD
+
+
+ProManAutoN_p <-  attr(credible(x = fit_advanced, x_fun = function(d) d["B_PMlRmanualpaN"] - d["B_PMlRautopaN"]
+         ), "less"
+)
+
+ProManAutoN_SD <-  hypothesis(fit_advanced, fun = function(d) d["B_PMlRmanualpaN"] - 
+             d["B_PMlRautopaN"], do_plot = F
+)
+ProManAutoN_SD
+
+additive_ProManAutoC_p <-  attr(credible(x = fit_advanced, x_fun = function(d) (
+ 
+  (exp(d["B_PMlRmanualC"] +d["B_PMlRmanualpaC"])- exp(d["B_PMlRmanualC"]))  
+  - (exp(d["B_PMlRautoC"] +d["B_PMlRautopaC"]) -exp(d["B_PMlRautoC"]))
+  )
+), "less"
+)
+
+additive_ProManAutoC_SD <-  hypothesis(fit_advanced, fun = function(d) (
+ 
+  (exp(d["B_PMlRmanualC"] +d["B_PMlRmanualpaC"])- exp(d["B_PMlRmanualC"]))  
+  - (exp(d["B_PMlRautoC"] +d["B_PMlRautopaC"]) -exp(d["B_PMlRautoC"]))
+  ), do_plot = F
+)
+additive_ProManAutoC_SD
+  
+additive_ProManAutoN_p <-  attr(credible(x = fit_advanced, x_fun = function(d) (
+ 
+  (exp(d["B_PMlRmanualN"] +d["B_PMlRmanualpaN"])- exp(d["B_PMlRmanualN"]))  
+  - (exp(d["B_PMlRautoN"] +d["B_PMlRautopaN"]) -exp(d["B_PMlRautoN"]))
+  )
+), "less"
+)
+
+additive_ProManAutoN_SD <-  hypothesis(fit_advanced, fun = function(d) (
+ 
+  (exp(d["B_PMlRmanualN"] +d["B_PMlRmanualpaN"])- exp(d["B_PMlRmanualN"]))  
+  - (exp(d["B_PMlRautoN"] +d["B_PMlRautopaN"]) -exp(d["B_PMlRautoN"]))
+  ), do_plot = F
+)
+additive_ProManAutoN_SD 
+  
+
+```
+
+
