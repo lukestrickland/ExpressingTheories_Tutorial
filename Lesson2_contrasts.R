@@ -1,8 +1,14 @@
 rm(list=ls())
 # Here, similar to in Lesson1_contrasts.R, we specify contrasts for 
-# the psychological theory, this time for the advanced example.
+# the psychological theory, this time for the advanced example (Lesson2.Rmd).
 # It would help to have gone through the first example, including 
 # Lesson1_contrasts.R, before reviewing this script.
+
+# The contrast matrices we specify are for an example where participants perform
+# a PM task but also have the assistance of automated advice. Along the way,
+# we also save off a simpler contrast matrix that is for an example with automated
+# advice but no PM task. More information can be found in the manuscript and in
+# Lesson2.Rmd
 
 # In this example, participants performed an air traffic control conflict detection
 # task requiring them to decide whether aircraft would violate safe separation
@@ -83,12 +89,13 @@ exinhcm[1:length(AutoV_RowNames), 1:6] <- 0
 # Because there are quite a few cells, fill out the contrast matrix
 # programmatically
 
-# First fill out the manual accumulation rates
+# First fill out the manual accumulation rates with "dummy coding" (i.e., one
+# parameter for each stimulus and latent response)
 Mans <- colnames(exinhcm)[
   grepl("M", colnames(exinhcm))
 ]
 
-# Essentially just string matching to fit the column names above appropriately
+# Below string matching to fit the column names above appropriately
 # to the design cells they should be assigned to
 
 # Loop over the parameter names specified above
@@ -162,6 +169,16 @@ for(i in rownames(exinhcm)){
   print(read_rows(exinhcm, i))
 }
 
+#A quick detour here for the automation-only example (no PM task). Remove
+# rows related to PM design cells, fix up names for an automation only context,
+# save off.
+exinhcm_auto <- exinhcm[!grepl("^P|^.p", rownames(exinhcm)), ]
+rownames(exinhcm_auto ) <- 
+  sub("^(.).(.*)$", "\\1\\2", rownames(exinhcm_auto ))
+save(exinhcm_auto, file= "img/exinhcm_auto.RData")
+
+
+# Continuing now to construct the complex matrix for the unified PM/auto example.
 # Similar method to the last contrast specification script here.
 # Now we want to account for control vs PM conditions. Use a kronecker product
 # to conveniently add another condition and stack the exinhcm matrix diagonally,
@@ -268,10 +285,8 @@ for(i in rownames(print_full_v_cm )){
 save(full_v_cm, file= "img/exinhcm_PM.RData")
 
 
-
-# Showcasing how proactive control can also be setup as contrasts, which is
-# appropriate in this case
-
+# Finally, proactive control is also embedded in contrasts in the PM+automation
+# example. We illustrate below.
 
 # Only need R and PM (2 x 4 = 6 level) condition factor to set this up across 
 # PM/control conditions

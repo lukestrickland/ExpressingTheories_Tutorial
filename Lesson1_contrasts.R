@@ -1,3 +1,8 @@
+# In Lesson1.Rmd we specify a cognitive process 
+#evidence accumulation model within linear-model language in EMC2.
+#Specifically, the Prospective Memory (PM) Decision Control model includes psychological processes 
+#that map to linear combinations of parameters, embedded in contrasts. 
+# This script pre-defines the relevant contrasts and places them in a matrix.
 
 # The code below is used to define a contrast matrix, where: 
 #   
