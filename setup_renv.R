@@ -5,11 +5,16 @@
 
 # Tutorial reader porting that environment to their machine:
 install.packages("renv")   # only if renv isn’t installed yet
-renv::activate()           # activate the renv
-renv::restore()            # reads renv.lock and installs everything cleanly
 
-# This will install all required packages in an isolated project library, 
+# activate the renv. This will restart your Rstudio
+renv::activate()   
+# reads renv.lock and installs everything cleanly
+renv::restore()          
+
+# Above will install all required packages in an isolated project library, 
 # ensuring versions match those used when the tutorial was created. 
+
+#You can disable the renv with renv::deactivate()
 
 #Note
 #- You may need to install Rtools for the renv to build

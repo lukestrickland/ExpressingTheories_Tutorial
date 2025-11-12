@@ -3,8 +3,8 @@ title: 'Lesson 2: Model generalization, unification and assessment'
 author: "Dr. Luke Strickland"
 date: "`r Sys.Date()`"
 output:
-  pdf_document: default
   html_document: default
+  pdf_document: default
   word_document: default
 editor_options:
   markdown:
@@ -13,19 +13,17 @@ editor_options:
 
 ## Setup
 
-### Install required packages globally
+##### Install packages globally
 A straightforward setup is to setup the required packages on your machine.
 The primary requirement for these scripts is the EMC2 package, 
 which can be installed from CRAN with install.packages("EMC2").Tidyverse packages 
 are also used for utility functions - specifically dplyr, tidyr, ggplot2, and 
 stringr. These packages can all be installed from CRAN with install.packages.
 
-###Notes
-
 - On windows, some packages may require that "Rtools" is first installed for both
 installation methods.
 
-### renv
+##### renv
 We also provide an renv, which you can use to automatically install all packages
 used for this R project down to the specific versions, specifically
 for working with this project alone. To use this, see the script setup_renv.R
