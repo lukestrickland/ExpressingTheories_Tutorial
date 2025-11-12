@@ -20,7 +20,7 @@ rm(list=ls())
 # Thus, the design factors include
 # Stimulus type (conflict, nonconflict, or PM)
 # PM block (control or PM)
-# Automation block (manual, ie unaided, or automation, ie aided)
+# Automation block (manual, i.e., unaided, or automation, i.e., aided)
 # Is automation correct? (correct/incorrect)
 # 
 # The theory is more complex because the contrast equations simultaneously 
@@ -37,7 +37,7 @@ rm(list=ls())
 # should be slower than manual for the choice automation disagrees with.
 
 # This is coded in addition to the PM inhibition mechanism that was present 
-# previously, with effects being additive. Unlike last example, ongoing-task 
+# previously, with effects being additive. Unlike the last example, ongoing-task 
 # accumulation rates are not  specified in terms of "quality" and "quantity" 
 # here, as there is already a focus on the inhibition and excitation mechanisms
 
@@ -206,7 +206,7 @@ colnames(exinhcm_PM) <- c(paste0("control", colnames(exinhcm)),
 )
 
 # Now define some extra PM parameters that will also be added for the PM conditions,
-# these will eventually be joined to the matrix to add 5 new paramter columns.
+# these will eventually be joined to the matrix to add 5 new parameter columns.
 PMpars <- matrix(nrow=dim(exinhcm_PM)[1], ncol=5)
 # initially empty
 PMpars [1:nrow(PMpars), 1:ncol(PMpars)] <- 0

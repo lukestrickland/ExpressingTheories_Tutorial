@@ -496,7 +496,7 @@ emc <- make_emc(dat, design_advanced_noproactive, prior=prior_advanced_noproacti
 
 ##### **No Automation Use Mechanisms**
 
-Exclude automation-use mechanisms by fixing such parameters to 0.
+Exclude automation-use mechanisms by fixing its parameters to 0.
 
 ```{r results='hide'}
 design_advanced_noauto <- design(model=LBA, 
@@ -604,8 +604,8 @@ load("samples/predicted_advanced.RData")
 ```
 
 EMC2 provides summary and plotting functions. However, is it also straightforward
-to extract data and posterior predictives to specify custom plots, each are provided
-simply as data frames. Here, we aim to 
+to extract data and posterior predictives (as data frames) as a basie for specifying custom plots. 
+Here, we aim to 
 produce plots consistent with Boag et al. (2025). To that end, a bespoke utility function,
 `calc_stat_postfit` takes `dat` and `pp` extracted from the EMC2 fit and summarizes
 based on a provided function.
@@ -789,8 +789,8 @@ eRT_df %>% filter(S %in% c("cc","nn")) %>% ggplot(aes(AM_fail, postmn_stat)) +
 #### **Model Comparison**
 
 After determining that the top model can fit the data, here we test whether 
-the model structure can be simplified. Smaller DIC/BPIC suggest
-a better fit to that model. DIC/BPIC also help to determine the relative contributions of different
+the model structure can be simplified. Smaller DIC/BPIC supports selection a model. 
+DIC/BPIC also help to determine the relative contributions of different
 mechanisms to overall fit - larger differences in favour of a model suggest a stronger preference.
 
 
@@ -812,7 +812,7 @@ check(fit_advanced_noproactive)
 ```
 
 
-Below uses EMC2's compare function to examine whether dropping mechanisms is supported.
+Below we use EMC2's compare function to examine whether dropping mechanisms is supported.
 Both DIC and BPIC suggest that the top model, with full PM and
 automation-use mechanisms, is most supported. Thus, all the
 included mechanisms are useful for predicting the data.
@@ -913,7 +913,7 @@ Savage-Dickey test (Bayes Factor of alternative vs null of 0) using EMC2's
 ```{r results='hide', fig.show = "hide"}
 
 #set.seed so that the Bayes Factor approximations are always the same,
-# as they involve samplilng from the prior
+# as they involve sampling from the prior
 set.seed(1234)
 
 #Use EMC2's credible function to get Bayesian p-value. Supply samples,
@@ -1103,7 +1103,7 @@ df
 As discussed in text, the proactive control calculated above was on the 
 estimated scale, rather than on mapped parameters. As thresholds are mapped from the
 log scale, this implies multiplicative rather than additive effects. To examine
-proactive control on the additive scale, we can use "mapped" parameters and then
+proactive control on the natural scale, we can use "mapped" parameters and then
 calculate proactive control effects post-hoc. Below, we show how to do so.
 
 New proactive control plot and new p-values (~0.01, ~0.02 for conflict and non-conflict,

@@ -32,8 +32,8 @@ Specifically, the Prospective Memory (PM) Decision Control (PMDC) model includes
 that map to linear combinations of parameters, embedded in contrasts. More information
 can be found in the associated manuscript.
 
-We demonstrate how to fit PMDC to a lexical-decision task example, in which participants
-would be expected to decide whether letter strings are words or non-words.  The PM task
+We demonstrate how to fit PMDC to a lexical-decision task (the "ongoing" task), in which participants
+decide whether letter strings are words or non-words.  The PM task
 could be, for example, to identify any word that is an animal. 
 
 This script defines contrasts to convert psychological processes from PMDC into
@@ -51,7 +51,7 @@ The key PMDC processes determining accumulation rates include:
   - *Indexes how good ongoing-task processing is (discrimination quality)* 
 
   2) **Ongoing-task urgency (urg):**
-  - The sum of matching and mismatching ongoing-task accumulation rates.
+  - The average of matching and mismatching ongoing-task accumulation rates.
   - *Indexes how fast processing is.*
 
   3) **Feedforward inhibition induced by PM inputs (inh):** 
@@ -167,8 +167,8 @@ synthetic performance data from PMDC.
 
 
 #### **Design Function** 
-The design function is a key workhorse of model specification in EMC2. It is used both to simulate
-data, but also to sample model parameters from observed data. It is explained extensively
+The design function is a key workhorse of model specification in EMC2. It is used both in
+both simulating and fitting data. It is explained extensively
 in the manuscript. For further documentation see `?design()`.
 
 Here we specify a PM model with: 
@@ -182,9 +182,8 @@ Here we specify a PM model with:
   
 As described in the manuscript, 
 EMC2 applies linear models to map estimated parameters to experiment design cells.
-These linear models will apply to a design data frame, which is built later in 
-`make_emc()`. The design data frame combines a data structure with information
-from the design function.
+These linear models will apply to a design data frame, which is built internally by the `make_data`
+and `make_emc()` functions described below. The design data frame combines a data structure with information from the design function.
 
 The design data frame is expanded to have a row for each trial '
 for each accumulator or "latent response" (*lR*). This is provided either by
@@ -196,7 +195,7 @@ the PM design, the number of accumulators varies based on conditions. The number
 accumulators is given by a special argument called RACE, which requires a function
 outputting the number of desired accumulators. 
 
-Further custom factor columns can be
+Further custom factor columns not contained in the original data can be
 useful for linear modelling. They are added to the design data frame using the "functions"
 argument. Here, we will create a custom factor *SlR* that maps to the rows of the mapping
 contrast matrix we supplied earlier. This factor will allow EMC to correctly map 
@@ -211,18 +210,18 @@ be reflected by a main effect of condition. In this study, PM targets were alway
 proactive control would be represented by an interaction between *lR* and *cond*, with higher thresholds specifically
 for the competing word accumulator in PM blocks. 
 
-Some parameters are transformed after mapping by default in EMC2, to assure that
-mapped parameters have allowable values. B is by default estimated on the log scale in EMC2, to avoid negative threshold values where less evidence
+By default, some parameters are transformed after mapping in EMC2 to ensure that
+they have allowable values. B is by default estimated on the log scale in EMC2, to avoid negative threshold values where less evidence
 is required to respond than at the start point. This means that the parameter is exponentiated before
-applied to the model likelihood. Thus, B should be interpreted in terms of multiplicative effects: values
+being applied to the model likelihood. Thus, B should be interpreted in terms of multiplicative effects: values
 greater than one imply a relative increase in thresholds, and less than one imply a decrease. sv, t0, and A
 are all also estimated on the log scale to enforce positivity.
   
 
 ```{r results='hide'}
 
-# A match fun is always required by EMC2
-#This match function identifies correct responses:
+# A match fun is required by EMC2 for data where there is a correct response.
+# This match function identifies correct responses:
 # Which is used for various functions such as plots.
 # It can also be used as a factor in the linear model, in this example
 # it is used to allow sv to vary based on whether the accumulator matches
@@ -250,20 +249,20 @@ design_PM_sim <- design(
     ,
   # The RACE argument is used to deal with the fact that in PM designs, 
   #control conditions have 2 accumulators, and PM conditions have three. 
-  #The below input assures that the PM accumulator is excluded from control 
+  #The argument below ensures that the PM accumulator is excluded from control 
   #blocks. 
     RACE=function(d)factor(ifelse(d$cond=="C",2,3)
     )
   ),
   #Here the contrast matrix is supplied
   contrasts = list(SlR=rate_design),
-  # A match function is always expected, even when the factor it creates (lM) 
+  # It is best to always provide a match function, even when the factor it creates (lM) 
   #is not used by design (so it can be used in functions that summarize accuracy).
   matchfun=match_fun,
   # This lm-style formula describes how parameters are mapped. Key here: **v** 
   # is mapped according to SlR, which in turn uses the supplied contrast matrix. 
   # To illustrate a conventional mapping, **B** here is just mapped using 
-  #linear-model notation. Specifically, it    #can vary by condition and by 
+  #linear-model notation. Specifically, it can vary by condition and by 
   #latent accumulator (lR). Increased ongoing-task thresholds in PM, as compared 
   #with control, conditions corresponds to "proactive control" in PMDC theory. 
   #These effects will be given by the "condPM" and "condPM:lRW" effects in this
@@ -274,7 +273,7 @@ design_PM_sim <- design(
   constants=c(
     # sv set to 1 here as a scaling parameter
     # To force it to be positive, EMC estimates log(sv) then exponentiates 
-    # afterwards. Hence set to log(1)
+    # afterwards. Hence set to log(1) for clarity (we could also set it to 0)
     sv=log(1),
     # By default, an intercept parameter is also included, which we don't want 
     # as the contrasts already fully define the v parameters for this example. 
@@ -313,10 +312,10 @@ We simulate a multi-participant data set
 of the same size as Strickland et al. (2018)'s. Here, the EMC2 function 
 (`make_random_effects`) uses the aforementioned covariance matrix to create 
 random effects for parameters, simulating parameters for each 
-p that can then in turn be used to simulate from PMDC. The result is a 35 (subject) x 19 (row) matrix.
+p that can then in turn be used to simulate data from PMDC. The result is a 35 (subject) x 19 (row) matrix.
 
 The `make_data` function uses the participant parameters to simulate data frame matching
-that supplied.
+that supplied. 
 
 ```{r}
 
@@ -397,9 +396,9 @@ design_PM <- design(model=LBA,
 ```
 
 #### **Define Priors**
-Bayesian estimation requires priors. To specify priors, EMC2 requires values for population means and a standard
-deviation representing uncertainty in each population mean. A multivariate normal distribution is assumed across participants,
-with sensible default priors for correlations and variances.
+Bayesian estimation requires priors. To specify priors either for a single participant or for population means (for a hierarchical model, as we focus on here), EMC2 requires values for population means and a standard
+deviation representing normally distributed uncertainty. If no prior is provided a standard normal distribution is used. A multivariate normal distribution is assumed across participants,
+with sensible default priors for correlations and variances with a limited ability for users to change these settings.
 
 Priors are plotted below. Also, mapped population-mean values are printed to ensure correct mappings
 via the mapped_pars function.
@@ -539,7 +538,8 @@ Ensure that parameter estimation converged successfully:
 ```{r eval=FALSE}
 
 #The check function prints information about the samples and
-# shows trace plots for the worst mu, sigma, and alpha parameter
+# shows trace plots for the worst mu, sigma, and alpha parameter. Here we see that the A
+# paramter is still changing slightly during the first half of the samples.
 check(fitPM)
 check(fitPMnc)
 
@@ -570,7 +570,7 @@ recovery(fitPM,
                res_recovery,
                selection="alpha"
 )
-#A similar print is available to above, but not used here as output is large
+#A similar printout is available to above, but not used here as output is large
 ```
 
 
@@ -582,7 +582,7 @@ We compare models using the Deviance Information Criterion (DIC) and Bayesian Pr
 ```{r}
 #The compare function looks at DIC/BPIC of a provided list of models.
 # BayesFactor=F is set to avoid costly calculations of marginal likelihoods,
-# but could be set to TRUE if Bayes Factor comparisons are desired.
+# but could be set to TRUE if Bayes Factor comparisons are desired (although this often requires getting a large number of samples).
 compare(list(
   top = fitPM,
   noproactive = fitPMnc
