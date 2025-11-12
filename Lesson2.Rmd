@@ -11,19 +11,32 @@ editor_options:
     wrap: 72
 ---
 
+## Setup
 
-You can use renv to install the necessary packages for this tutorial within
-the R project. To do so, first restore the project environment by running:
+### Standard: install required packages globally
+The primary requirement for these scripts is the EMC2 package, 
+which can be installed from CRAN with install.packages("EMC2").Tidyverse packages 
+are also used for utility functions - specifically dplyr, tidyr, ggplot2, and 
+stringr. These packages can all be installed from CRAN with install.packages.
+
+### renv
+We also provide an renv, which you can use to automatically install all packages
+used for this R project down to the specific versions, specifically
+for working with this project alone. To do so, first restore
+the project environment by running:
 
    install.packages("renv")
    renv::restore()
 
 This will install all required packages in an isolated project library, 
-ensuring versions match those used when the tutorial was created.
+ensuring versions match those used when the tutorial was created. 
 
-Otherwise, you may choose to install packages globally. The primary requirement for these scripts is the EMC2 package, which can be installed from CRAN with install.packages("EMC2").Tidyverse packages 
-are also used for utility functions - specifically dplyr, tidyr, ggplot2, and 
-stringr. These packages can all be installed from CRAN with install.packages.
+###Notes
+
+- On windows, some packages may require that "Rtools" is first installed for both
+installation methods.
+
+- The renv may encounter some issues with installing mvtnorm and Matrix packages on Mac. The script *renv_mac_build_fix.R* was written to help in case you encounter this issue.
 
 ## Overview
 
