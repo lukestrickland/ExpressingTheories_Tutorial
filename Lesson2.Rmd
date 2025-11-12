@@ -36,7 +36,7 @@ ensuring versions match those used when the tutorial was created.
 - On windows, some packages may require that "Rtools" is first installed for both
 installation methods.
 
-- The renv may encounter some issues with installing mvtnorm and Matrix packages on Mac. The script *renv_mac_build_fix.R* was written to help in case you encounter this issue.
+- renv may encounter some issues with installing mvtnorm and Matrix packages on Mac. The script *renv_mac_build_fix.R* may help in case you encounter this issue.
 
 ## Overview
 
