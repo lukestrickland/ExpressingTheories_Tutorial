@@ -1,3 +1,11 @@
+# The below script was added to account for an issue that may be encountered on mac
+# when trying to use renv. Specifically, it addresses an issue where
+# mvtnorm and Matrix do not install correctly. If you wish to use the included
+# renv on mac and encounter that issue, this script may address it.
+# Alternatively, you could simply install the required packages to your machine
+# and avoid renv.
+
+
 # ======================================================================
 #  macOS (Apple Silicon) build fix for mvtnorm (Fortran) + Matrix (gettext)
 #  - Forces R to use Homebrew's gfortran (gcc) instead of /opt/gfortran

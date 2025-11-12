@@ -1,5 +1,4 @@
-# This script simply cleans some applied data that will be used for the advanced
-# example.
+# This script simply cleans some applied data that will be used for Lesson Two.
 # Here we are taking it from its source form into EMC2 compliant format.
 
 #Data taken from Strickland, L., Heathcote, A., Bowden, V. K., Boag, R. J.,

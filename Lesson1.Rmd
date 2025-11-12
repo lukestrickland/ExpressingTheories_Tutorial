@@ -11,20 +11,19 @@ output:
 ## Setup
 
 ##### Install packages globally
-A straightforward setup is to setup the required packages on your machine.
 The primary requirement for these scripts is the EMC2 package, 
 which can be installed from CRAN with install.packages("EMC2").Tidyverse packages 
 are also used for utility functions - specifically dplyr, tidyr, ggplot2, and 
 stringr. These packages can all be installed from CRAN with install.packages.
 
-- On windows, some packages may require that "Rtools" is first installed for both
-installation methods.
+- On windows, some packages may require that "Rtools" is first installed.
 
 ##### renv
-We also provide an renv, which you can use to automatically install all packages
-used for this R project down to the specific versions, specifically
-for working with this project alone. To use this, see the script setup_renv.R
-
+Alternatively, we provide an renv, which you can use to automatically install all packages
+used for this R project down to the specific versions we used. 
+To use this rather than globally install packages, see the script setup_renv.R
+If you have issues with renv, we recommend trying installing packages globally
+instead.
 
 ## Overview
 
@@ -184,10 +183,10 @@ Here we specify a PM model with:
   
 As described in the manuscript, 
 EMC2 applies linear models to map estimated parameters to experiment design cells.
-These linear models will apply to a design data frame, which is built internally by the `make_data`
-and `make_emc()` functions described below. The design data frame combines a data structure with information from the design function.
+These linear models will apply to an augmented data frame, which is built internally by the `make_data`
+and `make_emc()` functions described below. The augmented data frame combines a data structure with information from the design function.
 
-The design data frame is expanded to have a row for each trial '
+The augmented data frame is expanded to have a row for each trial '
 for each accumulator or "latent response" (*lR*). This is provided either by
 "Rlevels", or inferred from a data frame supplied to "data".
 An additional column called *lM* is also created, to determine which
@@ -198,7 +197,7 @@ accumulators is given by a special argument called RACE, which requires a functi
 outputting the number of desired accumulators. 
 
 Further custom factor columns not contained in the original data can be
-useful for linear modelling. They are added to the design data frame using the "functions"
+useful for linear modelling. They are added to the augmented data frame using the "functions"
 argument. Here, we will create a custom factor *SlR* that maps to the rows of the mapping
 contrast matrix we supplied earlier. This factor will allow EMC to correctly map 
 contrasts over the design. These contrasts will be used to specify the mean accumulation rate
@@ -415,7 +414,7 @@ p_vector <- sampled_pars(design_PM,doMap=FALSE)
 #A, t0, sv match. Reasonable values
 p_vector[grepl("A", names(p_vector))] <- log(0.2)
 p_vector["t0"] <- log(0.2)
-#This implies a prior of match==mismatch
+#This implies a prior of sv match== sv mismatch
 p_vector["sv_lMTRUE"] <- log(1)
 
 #All B values fixed at log (1). This implies a prior on B intercept of 1,

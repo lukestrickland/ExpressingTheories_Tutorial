@@ -14,19 +14,19 @@ editor_options:
 ## Setup
 
 ##### Install packages globally
-A straightforward setup is to setup the required packages on your machine.
 The primary requirement for these scripts is the EMC2 package, 
 which can be installed from CRAN with install.packages("EMC2").Tidyverse packages 
 are also used for utility functions - specifically dplyr, tidyr, ggplot2, and 
 stringr. These packages can all be installed from CRAN with install.packages.
 
-- On windows, some packages may require that "Rtools" is first installed for both
-installation methods.
+- On windows, some packages may require that "Rtools" is first installed.
 
 ##### renv
-We also provide an renv, which you can use to automatically install all packages
-used for this R project down to the specific versions, specifically
-for working with this project alone. To use this, see the script setup_renv.R
+Alternatively, we provide an renv, which you can use to automatically install all packages
+used for this R project down to the specific versions we used. 
+To use this rather than globally install packages, see the script *setup_renv.R*
+If you have issues with renv, we recommend trying installing packages globally
+instead.
 
 ## Overview
 
@@ -185,7 +185,9 @@ design_auto <- design(
     v=0
   )
 )
+```
 
+```{r}
 #Giving mapped_pars just the design prints out the relevant linear models that are
 # created. These models are used to determine design-cell parameters.
 mapped_pars(design_auto)
@@ -607,7 +609,7 @@ load("samples/predicted_advanced.RData")
 ```
 
 EMC2 provides summary and plotting functions. However, is it also straightforward
-to extract data and posterior predictives (as data frames) as a basie for specifying custom plots. 
+to extract data and posterior predictives (as data frames) as a basis for specifying custom plots. 
 Here, we aim to 
 produce plots consistent with Boag et al. (2025). To that end, a bespoke utility function,
 `calc_stat_postfit` takes `dat` and `pp` extracted from the EMC2 fit and summarizes
@@ -1167,7 +1169,6 @@ proactive  %>%
 # we are supplying mapping functions and subsequent post-map control calculations
 # using the function arguments
 additive_ProManAutoC_p <-  attr(credible(x = fit_advanced, x_fun = function(d) (
- 
   (exp(d["B_PMlRmanualC"] +d["B_PMlRmanualpaC"])- exp(d["B_PMlRmanualC"]))  
   - (exp(d["B_PMlRautoC"] +d["B_PMlRautopaC"]) -exp(d["B_PMlRautoC"]))
   )
