@@ -30,6 +30,13 @@ To use this rather than globally install packages, see the script setup_renv.R
 If you have issues with renv, we recommend trying installing packages globally
 instead.
 
+### Pre-computed objects
+
+MCMC samples require compute time. Posterior predictives also require some time, although far less. 
+All pre-computed sample and posterior predict objects are available in samples.zip
+
+Samples should be moved inside of the “samples” directory in order for the scripts to run.
+
 ## Overview
 
 This script demonstrates how to specify a cognitive process 

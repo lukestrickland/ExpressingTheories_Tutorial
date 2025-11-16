@@ -1,9 +1,6 @@
 A tutorial on specifying cognitive process theories in the R package EMC2. For context,
 please consult the associated manuscript.
 
-If you have any problems running the project, you can contact the first
-author at luke.strickland@curtin.edu.au.
-
 ## Pre-computed objects
 
 MCMC samples require compute time. Posterior predictives also require some time, although far less. 
@@ -18,7 +15,7 @@ Directions on setting up an appropriate environment to run the scripts can
 be found below, and also at the top of *Lesson1.Rmd* and *Lesson2.Rmd*.
 
 We recommend downloading RStudio and loading this project by opening
-ExpressingTheories_Tutorial.Rproj.
+*ExpressingTheories_Tutorial.Rproj*.
 
 ##### Install packages globally
 The primary requirement for these scripts is the EMC2 package, 
@@ -36,3 +33,9 @@ packages are kept isolated to this project and do not affect your global R libra
 To use this rather than globally install packages, see the script setup_renv.R
 If you have issues with renv, we recommend trying installing packages globally
 instead.
+
+## Troubleshooting
+If you have any problems running the project, you can contact the first
+author at *luke.strickland@curtin.edu.au*. In case you wish to quickly view the 
+code output from the lessons but encounter issues running the code, we have 
+provided pre-knitted outputs in *Lesson1.html* and *Lesson2.html*.
