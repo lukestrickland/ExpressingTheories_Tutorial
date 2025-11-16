@@ -13,20 +13,26 @@ editor_options:
 
 ## Setup
 
+We recommend downloading RStudio and loading this project by opening
+ExpressingTheories_Tutorial.Rproj.
+
 ##### Install packages globally
 The primary requirement for these scripts is the EMC2 package, 
 which can be installed from CRAN with install.packages("EMC2").Tidyverse packages 
 are also used for utility functions - specifically dplyr, tidyr, ggplot2, and 
-stringr. These packages can all be installed from CRAN with install.packages.
+stringr. These packages can all be installed from CRAN with install.packages().
 
-- On windows, some packages may require that "Rtools" is first installed.
+- On Windows, some packages may require that Rtools is first installed.
+- On macOS, some packages may require that command line developer tools are installed.
 
 ##### renv
-Alternatively, we provide an renv, which you can use to automatically install all packages
-used for this R project down to the specific versions we used. 
-To use this rather than globally install packages, see the script *setup_renv.R*
+Alternatively, we provide an renv environment, which you can use to automatically 
+install all packages for this R project with the specific versions we used. These 
+packages are kept isolated to this project and do not affect your global R library.
+To use this rather than globally install packages, see the script setup_renv.R
 If you have issues with renv, we recommend trying installing packages globally
 instead.
+
 
 ## Overview
 

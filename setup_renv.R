@@ -17,6 +17,8 @@ renv::restore()
 #You can disable the renv with renv::deactivate()
 
 #Note
-#- You may need to install Rtools for the renv to build
-#- renv may encounter some issues with installing mvtnorm and Matrix packages on Mac.
+#- On Windows, you may need to install Rtools for the renv to build
+#- On macOS, you may need to install the command line developer tools.
+#- renv may encounter some issues with installing mvtnorm and Matrix packages on 
+# macOS in some cases.
 #The script *renv_mac_build_fix.R* may help in case you encounter this issue.
