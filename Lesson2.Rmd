@@ -1176,42 +1176,32 @@ proactive  %>%
   coord_flip() 
 
 
-#Get p-values and Bayes Factors for the mapped, transformed values
-# This involves similar calls to credible and hypothesis as earlier, except
-# we are supplying mapping functions and subsequent post-map control calculations
-# using the function arguments
+#Get mapped parameter names 
+# colnames(params_mapped)[grepl("B_",colnames(params_mapped))]
+
+# Get p-values for the mapped, transformed parameters to examine effect
+# on the natural scale.
+# This involves similar calls to credible as earlier, except
+# we are supplying map=T and looking at post-estimated natural-scale proactive
+# control.
 additive_ProManAutoC_p <-  attr(credible(x = fit_advanced, x_fun = function(d) (
-  (exp(d["B_PMlRmanualC"] +d["B_PMlRmanualpaC"])- exp(d["B_PMlRmanualC"]))  
-  - (exp(d["B_PMlRautoC"] +d["B_PMlRautopaC"]) -exp(d["B_PMlRautoC"]))
-  )
-), "less"
+  #Proactive Manual (natural scale)
+  (d["B_PMlRCPMmanual"]- d["B_PMlRCcontrolmanual"])  
+  #Proactive Auto (natural scale)
+  - (d["B_PMlRCPMauto"]- d["B_PMlRCcontrolauto"]) 
+    ), map=T
+  ), "less"
 )
 
-additive_ProManAutoC_SD <-  hypothesis(fit_advanced, fun = function(d) (
- 
-  (exp(d["B_PMlRmanualC"] +d["B_PMlRmanualpaC"])- exp(d["B_PMlRmanualC"]))  
-  - (exp(d["B_PMlRautoC"] +d["B_PMlRautopaC"]) -exp(d["B_PMlRautoC"]))
-  ),  do_plot = F
-)
-
-additive_ProManAutoC_SD 
-  
 additive_ProManAutoN_p <-  attr(credible(x = fit_advanced, x_fun = function(d) (
- 
-  (exp(d["B_PMlRmanualN"] +d["B_PMlRmanualpaN"])- exp(d["B_PMlRmanualN"]))  
-  - (exp(d["B_PMlRautoN"] +d["B_PMlRautopaN"]) -exp(d["B_PMlRautoN"]))
-  )
-), "less"
+  #Proactive Manual (natural scale)
+  (d["B_PMlRNPMmanual"]- d["B_PMlRNcontrolmanual"])  
+  #Proactive Auto (natural scale)
+  - (d["B_PMlRNPMauto"]- d["B_PMlRNcontrolauto"]) 
+    ), map=T
+  ), "less"
 )
 
-additive_ProManAutoN_SD <-  hypothesis(fit_advanced, fun = function(d) (
- 
-  (exp(d["B_PMlRmanualN"] +d["B_PMlRmanualpaN"])- exp(d["B_PMlRmanualN"]))  
-  - (exp(d["B_PMlRautoN"] +d["B_PMlRautopaN"]) -exp(d["B_PMlRautoN"]))
-  ),  do_plot = F
-)
-
-additive_ProManAutoN_SD
 
 
 ```

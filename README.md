@@ -12,7 +12,8 @@ All pre-computed sample and posterior predict objects are available in samples.z
 ## Setup Environment
 
 Directions on setting up an appropriate environment to run the scripts can
-be found below, and also at the top of *Lesson1.Rmd* and *Lesson2.Rmd*.
+be found below, and also at the top of *Lesson1.Rmd* and *Lesson2.Rmd*, which
+are the primary scripts of interest.
 
 We recommend downloading RStudio and loading this project by opening
 *ExpressingTheories_Tutorial.Rproj*.
