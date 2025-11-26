@@ -16,7 +16,8 @@ be found below, and also at the top of *Lesson1.Rmd* and *Lesson2.Rmd*, which
 are the primary scripts of interest.
 
 We recommend downloading RStudio and loading this project by opening
-*ExpressingTheories_Tutorial.Rproj*.
+*ExpressingTheories_Tutorial.Rproj*. However, any environment that can run R Markdown
+should also work.
 
 ##### Install packages globally
 The primary requirement for these scripts is the EMC2 package, 
