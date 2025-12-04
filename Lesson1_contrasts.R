@@ -1,3 +1,8 @@
+# In Lesson1.Rmd we specify a cognitive process 
+#evidence accumulation model within linear-model language in EMC2.
+#Specifically, the Prospective Memory (PM) Decision Control model includes psychological processes 
+#that map to linear combinations of parameters, embedded in contrasts. 
+# This script pre-defines the relevant contrasts and places them in a matrix.
 
 # The code below is used to define a contrast matrix, where: 
 #   
@@ -37,8 +42,10 @@ rate_design[1:18, 1:11] <- 0
 
 # After constructing the empty matrix, we then fill out the contrast equations.\
 # 
-# We theorise about the PM accumulator rate directly. So, the equation for the PM accumulator rate is mapped directly from the PM trial rate.
-# A single false alarm rate is estimated for both PM stimuli types *(Not of much interest due to poor estimation. Typical studies observe very few PM fas)*.
+# We theorise about the PM accumulator rate directly. So, the equation for the PM 
+# accumulator rate is mapped directly from the PM trial rate.
+# A single false alarm rate is estimated for both PM stimuli types *(Not of much 
+# interest due to poor estimation. Typical studies observe very few PM fas)*.
 
 rate_design["PpPM", "PMR"] <- 1
 rate_design["PnPM", "fa"] <- 1
@@ -46,14 +53,19 @@ rate_design["PwPM", "fa"] <- 1
 
 
 # #### **Inhibition (inh)**
-# To model inhibition, we theorise about the difference between ongoing task-accumulation rates on PM trials, compared to nonPM trials. Inhibition from PM inputs should lead to a lower ongoing task accumulation rate on PM trials.\
+# To model inhibition, we theorise about the difference between ongoing task-accumulation 
+# rates on PM trials, compared to nonPM trials. Inhibition from PM inputs should 
+# lead to a lower ongoing task accumulation rate on PM trials.\
 # 
-# The inhibition effect is calculated as the difference between ongoing-task accumulation rates in PM trials compared to non-PM trials. 
+# The inhibition effect is calculated as the difference between ongoing-task accumulation 
+# rates in PM trials compared to non-PM trials. 
 # 
 # - **Ongoing task rate [PM trial] = Ongoing task rate [non-PM trial] - Inhibition**
 #   
-#   Thus, in the contrast matrix, inhibition is subtracted from the ongoing-task accumulation rates on PM trials:
-#   To model inhibition from PM inputs, we subtract inhibition from ongoing-task accumulation on PM trials:
+#   Thus, in the contrast matrix, inhibition is subtracted from the ongoing-task 
+#   accumulation rates on PM trials:
+#   To model inhibition from PM inputs, we subtract inhibition from ongoing-task 
+#   accumulation on PM trials:
 
 rate_design["WpPM", "inh"] <- -1
 rate_design["NpPM", "inh"] <- -1
@@ -62,17 +74,18 @@ rate_design["NpPM", "inh"] <- -1
 # 
 # Ongoing task capacity inferred from accumulation rates are decomposed into:
 #   
-#   - Urgency (matching + mismatching)
+# - Urgency (matching + mismatching)
 # - Quality (matching - mismatching)\
 # 
 # So:
 #   
-#   - Matching rate = (0.5 x Urgency) + (0.5 x Quality) 
+# - Matching rate = (0.5 x Urgency) + (0.5 x Quality) 
 # - Mismatching rate = (0.5 x Urgency)  - (0.5 x Quality) 
 # 
 # This structure allows us to estimate capacity separately for PM and control conditions.
 # 
-# In this example, PM items are words and so they get the same mappings of ongoing-task parameters as words do.
+# In this example, PM items are words and so they get the same mappings of ongoing-task 
+# parameters as words do.
 
 rate_design["NnC", "qualnC"]  <- 0.5
 rate_design["WnC", "qualnC"]  <- -0.5

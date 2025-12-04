@@ -1,4 +1,8 @@
+# This script contains some custom utility functions that complement EMC2's
+# functionality.
+
 library(dplyr)
+
 #Functions for printing out equations from contrast matrices.
 
 neat_term <- function(coef_i, name_i, i){
@@ -42,7 +46,7 @@ read_rows <- function(contrast_mat, rowname){
   form
 }
 
-#Functions for summarizing posterior predictives.
+#Functions for summarizing posterior predictives
 calc_stat_postfit <- function(dat, pp, facs, stat_fn, stat_cols) {
   
   model_stat <- pp %>% group_by(across(all_of(c("postn", facs))))%>%

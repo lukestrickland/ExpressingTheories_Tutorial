@@ -1,11 +1,18 @@
+# In the main lesson, we simulate data to illustrate some principles of 
+# cognitive process models. To get appropriate parameter values for that 
+# simulation, here we fitted a model to actual data from Strickland et al. (2018)
+# Strickland, L., Loft, S., Remington, R. W., & Heathcote, A. (2018). 
+# Racing to remember: A theory of decision control in event-based 
+# prospective memory. Psychological review, 125(6), 851-887. 
+# https://doi.org/10.1037/rev0000113
+
+#Clear environment, load EMC2
 rm(list=ls())
 library(EMC2)
-library(dplyr)
-
 load("img/rate_contrasts.RData")
 load("data/ex1_PR.RData")
 
-#Load in the Psych Review data. From here, coerce the format to be same as in tutorial
+# Load in the Psych Review data. From here, coerce the format to be same as in tutorial
 # Drop focal condition for these purposes
 
 okdats <- okdats[,c("s", "PM", "day", "S", "R", "RT")]
@@ -33,13 +40,16 @@ save(okdats, file="data/fittedPRdats.RData")
 dats <- okdats[,c("subjects", "cond", "S", "R", "rt")]
 save(dats, file="data/simple_data.RData")
 
+#Required by EMC2: a match function that determines accuracy for each
+# accumulator for erach trial
 match_fun <- function(d)
   as.character(d$S) == tolower(
     as.character(d$lR)
   )
 
+#The design function specifying a model. See Lesson1.Rmd for detailed comments
+# on a similar example
 design_PM <- design(model=LBA, 
-                    #The data created last script
                     data=okdats,
                     functions=list(SlR=function(d) 
                       factor(paste0(d$lR, d$S, d$cond),
@@ -56,6 +66,7 @@ design_PM <- design(model=LBA,
                     )
 )
 
+#Setting up a prior, here setting population mean values.
 p_vector <- sampled_pars(design_PM,doMap=FALSE)
 p_vector[grepl("B", names(p_vector))] <- log(1)
 p_vector["t0"] <- log(0.3)
@@ -65,9 +76,7 @@ p_vector[grepl("v_SlRPMR", names(p_vector))] <- 1
 p_vector[grepl("qual", names(p_vector))] <- 1
 p_vector[grepl("urg", names(p_vector))] <- 2
 
-mapped_pars(design_PM, p_vector = p_vector)
-
-
+#Here specifying uncertainty in population means for the prior
 n_vs <- length(p_vector[grepl("^v", names(p_vector))])
 n_Bs <- length(p_vector[grepl("B", names(p_vector))])
 
@@ -80,12 +89,14 @@ psd=c(
   
 )
 
+#Just print out the prior data frame for a quick look
 priordf <- cbind(p_vector, psd)
 priordf[grepl("B_", rownames(priordf)),]
 priordf[grepl("v_", rownames(priordf)),]
 priordf[rownames(priordf) %in% c("A", "t0"),]
 
-
+#Create EMC2 prior object, find to data and design for sampler object.
+# Save. It was dispatched in a separate script with EMC2's "fit" method.
 prior_PM  <- prior(design_PM,mu_mean=p_vector, mu_sd=psd)
 samplerPM_PR <- make_emc(okdats, design_PM, prior=prior_PM)
 save(samplerPM_PR,file="samples/samplerPM_PR.RData")

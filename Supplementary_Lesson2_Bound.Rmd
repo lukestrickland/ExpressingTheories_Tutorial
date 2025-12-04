@@ -1,10 +1,11 @@
 ---
-title: 'Lesson 2: Supplementary, bounded parameters'
+title: 'Lesson 2: Supplementary Unified Model, Bounded Parameters'
 author: "Dr. Luke Strickland"
 date: "`r Sys.Date()`"
 output:
-  pdf_document: default
+  word_document: default
   html_document: default
+  pdf_document: default
 editor_options:
   markdown:
     wrap: 72
@@ -14,8 +15,9 @@ remotes::install_github("ampl-psych/EMC2", dependencies=TRUE, ref = "dev")
 
 ## Overview
 
-Lesson 2 but with parameter bounds on excitation/inhibition introduced with a
-pre-transform. See Lesson2.Rmd for more details.
+The unified PMDC/automation model from Lesson 2, but with parameter bounds on excitation/inhibition. 
+See Lesson2.Rmd for detailed descriptions and comments. All that has been modified here is 
+bounds, so most descriptions are omitted. An example bound is commented in the first example defining "design_advanced".
 
 ## Load
 
@@ -369,7 +371,7 @@ acc_df %>% filter(S %in% c("cc","nn")) %>% ggplot(aes(AM_fail, postmn_stat)) +
   geom_point(size=3)+ geom_errorbar(aes(ymax = upper, ymin = lower), width=0.5) +
   geom_line(aes(group=1), linetype=2)+
   geom_point(aes(y= stat), pch=21, size=4, colour="black")+
-  facet_grid(S~PM)  +ylab("Correct RT") +xlab("Automation") +ylab("Accuracy")+
+  facet_grid(S~PM) +xlab("Automation") +ylab("Accuracy")+
   theme(text = element_text(size = 22), axis.text=element_text(size=15))+ylim(0.5,1)
 ```
 
@@ -378,7 +380,7 @@ acc_df %>% filter(!S %in% c("cc","nn")) %>% ggplot(aes(AM_fail, postmn_stat)) +
   geom_point(size=3)+ geom_errorbar(aes(ymax = upper, ymin = lower), width=0.5) +
   geom_line(aes(group=1), linetype=2)+
   geom_point(aes(y= stat), pch=21, size=4, colour="black")+
-  facet_grid(.~S)  +ylab("Correct RT") +xlab("Automation") +ylab("Accuracy")+
+  facet_grid(.~S)  +xlab("Automation") +ylab("Accuracy")+
   theme(text = element_text(size = 22), axis.text=element_text(size=15)) +ylim(0.5,1)
 ```
 
@@ -616,37 +618,25 @@ ProManAutoN_SD <-  hypothesis(fit_advanced, fun = function(d) d["B_PMlRmanualpaN
 ProManAutoN_SD
 
 additive_ProManAutoC_p <-  attr(credible(x = fit_advanced, x_fun = function(d) (
- 
-  (exp(d["B_PMlRmanualC"] +d["B_PMlRmanualpaC"])- exp(d["B_PMlRmanualC"]))  
-  - (exp(d["B_PMlRautoC"] +d["B_PMlRautopaC"]) -exp(d["B_PMlRautoC"]))
-  )
-), "less"
+  #Proactive Manual (natural scale)
+  (d["B_PMlRCPMmanual"]- d["B_PMlRCcontrolmanual"])  
+  #Proactive Auto (natural scale)
+  - (d["B_PMlRCPMauto"]- d["B_PMlRCcontrolauto"]) 
+    ), map=T
+  ), "less"
 )
 
-additive_ProManAutoC_SD <-  hypothesis(fit_advanced, fun = function(d) (
- 
-  (exp(d["B_PMlRmanualC"] +d["B_PMlRmanualpaC"])- exp(d["B_PMlRmanualC"]))  
-  - (exp(d["B_PMlRautoC"] +d["B_PMlRautopaC"]) -exp(d["B_PMlRautoC"]))
-  ), do_plot = F
-)
-additive_ProManAutoC_SD
-  
+additive_ProManAutoC_p 
+
 additive_ProManAutoN_p <-  attr(credible(x = fit_advanced, x_fun = function(d) (
- 
-  (exp(d["B_PMlRmanualN"] +d["B_PMlRmanualpaN"])- exp(d["B_PMlRmanualN"]))  
-  - (exp(d["B_PMlRautoN"] +d["B_PMlRautopaN"]) -exp(d["B_PMlRautoN"]))
-  )
-), "less"
+  #Proactive Manual (natural scale)
+  (d["B_PMlRNPMmanual"]- d["B_PMlRNcontrolmanual"])  
+  #Proactive Auto (natural scale)
+  - (d["B_PMlRNPMauto"]- d["B_PMlRNcontrolauto"]) 
+    ), map=T
+  ), "less"
 )
-
-additive_ProManAutoN_SD <-  hypothesis(fit_advanced, fun = function(d) (
- 
-  (exp(d["B_PMlRmanualN"] +d["B_PMlRmanualpaN"])- exp(d["B_PMlRmanualN"]))  
-  - (exp(d["B_PMlRautoN"] +d["B_PMlRautopaN"]) -exp(d["B_PMlRautoN"]))
-  ), do_plot = F
-)
-additive_ProManAutoN_SD 
-  
+additive_ProManAutoN_p   
 
 ```
 

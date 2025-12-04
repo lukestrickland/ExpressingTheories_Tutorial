@@ -1,62 +1,61 @@
 ---
-title: 'Lesson 2: A unified model of PM and automation use'
+title: 'Lesson 2: Model generalization, unification and assessment'
 author: "Dr. Luke Strickland"
 date: "`r Sys.Date()`"
 output:
-  pdf_document: default
   html_document: default
+  pdf_document: default
+  word_document: default
 editor_options:
   markdown:
     wrap: 72
 ---
 
+## Setup
+
+We recommend downloading RStudio and loading this project by opening
+ExpressingTheories_Tutorial.Rproj. However, any environment that can run R Markdown
+should also work.
+
+##### Install packages globally
 The primary requirement for these scripts is the EMC2 package, 
 which can be installed from CRAN with install.packages("EMC2").Tidyverse packages 
 are also used for utility functions - specifically dplyr, tidyr, ggplot2, and 
-stringr. These packages can all be installed from CRAN with install.packages.
+stringr. These packages can all be installed from CRAN with install.packages().
+
+- On Windows, some packages may require that Rtools is first installed.
+- On macOS, some packages may require that command line developer tools are installed.
+
+##### renv
+Alternatively, we provide an renv environment, which you can use to automatically 
+install all packages for this R project with the specific versions we used. These 
+packages are kept isolated to this project and do not affect your global R library.
+To use this rather than globally install packages, see the script setup_renv.R
+If you have issues with renv, we recommend trying installing packages globally
+instead.
+
+### Pre-computed objects
+
+MCMC samples require compute time. Posterior predictives also require some time, although far less. 
+All pre-computed sample and posterior predict objects are available in samples.zip
+
+Samples should be moved inside of the “samples” directory in order for the scripts to run.
 
 ## Overview
 
-In this script, we demonstrate how to unify the PMDC model with a recently
-published model of automation use. We also step through the basic model testing
-and validation workflow. The original work and data evaluated is from
-an empirical study:
+This script followed on from Lesson1.Rmd, which illustrated how to specify
+and fit the Prospective Memory (PM) decision control (PMDC) model. Here,
+we generalize these techniques to another paradigm. Specifically, we
+illustrate an evidence accumulation model (EAM) quantifying
+the mechanisms underlying automation use (Strickland et al., 2018). 
+We demonstrate how to unify this model with the PMDC model reviewed in Lesson One.
+We then walk through model assessment techniques applying the unified model
+to an example data set. The unified model and associated data are from a recent
+empirical study (Boag et al., 2025).
 
 -   Boag, Strickland, Heathcote & Loft (2025) The Use of Automated Decision Aids in Multi-Tasking Context.*Under Review*.
-    
-In the proposed model, automation-use affects accumulation rates in two potential ways:
 
-1) Excitation, where automation inputs increase accumulation towards
-recommended responses. 
-- *Excitation implies that accumulation rates
-should be faster than manual rates for the choice automation agrees
-with.*
-2) Inhibition, where automation inputs decrease accumulation
-towards opposing responses. 
-- *Inhibition implies accumulation rates should be slower than manual for the choice automation disagrees with.*
-
-As with the PMDC model, the possibility of proactive control over thresholds is included
-(larger thresholds in PM than control blocks).
-Furthermore, this proactive control is allowed to differ across conditions where participants
-perform the task manually versus when they work with automated advice.
-
-Boag et al. (2025) tested the model with an experiment. Participants performed
-an air traffic control conflict detection task, where they determined whether 
-aircraft pairs would violate safe separation standards during their flight. In some
-conditions, participants had a PM task. This required pressing an alternative key
-for targets with particular aircraft callsigns. In some conditions, participants were
-provided with an automated decision aid that recommends whether
-aircraft are in conflict or not. This decision aid was sometimes wrong. PM and 
-automation conditions were crossed within-subjects for each participant.
-
-**Boag et al. (2025) Design Factors**
-
--   *Stimulus Type*: Conflict, Nonconflict, or PM
--   *PM Block*: Control or PM
--   *Automation Block*: Manual (Unaided) or Automation (Aided)
--   *Automation Accuracy*: Correct or Incorrect
-
-
+-   Strickland, L., Heathcote, A., Bowden, V. K., Boag, R. J., Wilson, M. K., Khan, S., & Loft, S. (2021). Inhibitory cognitive control allows automated advice to improve accuracy while minimizing misuse. Psychological Science, 32(11), 1768-1781. https://doi.org/10.1177/09567976211012676
 
 ## Load
 
@@ -72,19 +71,173 @@ library(ggplot2)
 #Some bespoke utility functions
 source("utility_functions.R")
 
+#Data and contrast matrix for automation example
+load("data/AutoData.RData")
+load("img/exinhcm_auto.RData")
+
+
+#Data and contrast matrices for unified model
 load("data/data_advanced.RData")
 load("img/exinhcm_PM.RData")
 load("img/Proactivecm_auto.RData")
 ```
+    
+
+# Automation Use Model
+    
+Strickland et al. (2021) investigated how people integrate automated advice into 
+their decision-making.  
+In their study, participants performed a conflict detection task,
+where they determined whether 
+aircraft pairs would violate safe separation standards during their flight. If so,
+they were asked to classify aircraft as "conflict". If not, then "non-conflict".
+
+Participants completed the task under two blocked conditions:
+
+- **Manual condition:** participants made decisions unaided.  
+- **Automation condition:** a decision aid (automation) provided a recommendation, 
+either conflict (CONFLICT) or non-conflict (NON-CONF). The advice was correct
+on 90% of automation-block trials. 
+
+The data set is shown below.
+It contains standard EMC2 columns, such as subjects,
+R for response (C= conflict, N= non-conflict), and rt.
+
+Also, design-specific columns:
+
+-   `S`: stimulus type (c=conflict, n=nonconflict),
+-   `auto`: Did participants have an automated decision aid in that
+    block(auto) or not (manual)?
+-   `failtrial`: Did the automated advice recommend a correct decision
+    (AC) or incorrect (AI) on the particular trial?
+
+Note that AC and AI are also specified for manual, but are just matched
+trials with the factor having little meaning, as no automated advice was provided. 
+
+```{r}
+head(AutoData)
+```    
+    
+In Strickland et al. (2018)'s model, automation-use affects accumulation rates in two  ways:
+
+1) Excitation, where automation inputs increase accumulation towards
+recommended responses. 
+- *Excitation implies that accumulation rates
+should be faster than manual rates for the choice automation agrees
+with.*
+2) Inhibition, where automation inputs decrease accumulation
+towards opposing responses. 
+- *Inhibition implies accumulation rates should be slower than manual for the choice automation disagrees with.*
+
+Unlike the last example,
+base ongoing-task accumulation rates are not specified in terms of "quality"
+and "urgency" here, for simplicity. However, they could have been specified that way. 
 
 
+# Mapping Contrasts
 
-The data set that will be analysed. It contains standard EMC2 columns, such as subjects,S for stimulus type
-(cc=conflict, nn=nonconflict, pc= PM target, conflict, pn= PM target, nonconflict),
+To express Strickland et al.’s mechanisms within EMC, we need 
+contrasts that map estimated parameters (excitation/inhibition) onto 
+design cell parameters.  
+These contrasts specify how each accumulator’s evidence-accumulation rate depends on combinations of factors such as automation condition and advice congruence.
+
+Automation-informed contrasts are added in automation blocks:
+-  automation excitation is added to rates agreeing with automated advice (e.g., the matching accumulation rate when
+automation is correct)
+-  automation inhibition is subtracted from rates disagreeing with automated advice (e.g., the matching 
+accumulation rate when automation is incorrect)
+
+
+```{r}
+
+#Print out the equations implied by the excitation-inhibition contrast matrix
+for(i in rownames(exinhcm_auto)){
+  print(read_rows(exinhcm_auto, i))
+}
+```
+
+## Model Specification
+
+We now demonstrate how to specify this model using design.
+
+```{r results='hide'}
+
+#Specifying accumulator/design cells where the accumulator is correct
+match_fun <- function(d)
+  as.character(substr(d$S,1,1)) == tolower(
+    as.character(d$lR)
+  )
+
+design_auto <- design(
+  #Same model type as Lesson One: LBA
+  model=LBA,
+  #Data which will be used to determine experiment factors and latent responses
+  data=AutoData,
+  # Defining a custom factor which will be used for accumulation-rate contrasts
+  # Pastes together accumulator, stimulus type, auto vs manual condition,
+  # whether automation is correct or incorrect
+  functions=list(SlR=function(d) factor(paste0(d$lR, d$S, d$AM, d$fail),
+                                   levels=rownames(exinhcm_auto))
+                          ),
+  #The contrast matrix determining the action of inhibition/excitation
+  #(created in Lesson2_contrasts.R)
+  contrasts = list(SlR=exinhcm_auto),
+  matchfun=match_fun,
+  #Key linear model formulae
+  #v specified according to SlR and contrast matrix, thresholds can vary based on
+  # accumulator and auto vs manual conditions, 1 A, t0. sv can vary by latent match
+  formula=list(v~SlR,B ~ lR*AM,A ~ 1,t0 ~ 1,sv ~ lM),
+    constants=c(
+    # sv set to 1 here as a scaling parameter
+    # To force it to be positive, EMC estimates log(sv) then exponentiates 
+    # afterwards. Hence set to log(1)
+    sv=log(1),
+    # By default, an intercept parameter is also included, which we don't want 
+    # as the contrasts already fully define the v parameters for this example. 
+    #So set the intercept to constant 0
+    v=0
+  )
+)
+```
+
+```{r}
+#Giving mapped_pars just the design prints out the relevant linear models that are
+# created. These models are used to determine design-cell parameters.
+mapped_pars(design_auto)
+```
+
+# Unifying automation-use and PM models: Boag et al. (2025)
+
+A major advantage of computational modelling is the ability to unify theories
+across disparate domains. For example, both the PM and automation examples use 
+feedforward control architectures to quantify how decisions are affected by inputs,
+either PM stimuli or automated advice recommendations. With an appropriate design, 
+these mechanisms can operate together within a single EAM. Boag et al. (2025) 
+proposed a unified model including both. Here, we walk through their example
+to illustrate model unification.
+
+Boag et al. (2025) tested their model with an experiment combining a PM task
+and automated advice. Participants performed
+a conflict detection task. In some
+conditions, participants had a PM task. This required pressing an alternative key
+for targets with particular aircraft callsigns. In some conditions, participants were
+provided with an automated decision aid that recommends whether
+aircraft are in conflict or not. This decision aid was sometimes wrong. PM and 
+automation conditions were crossed within-subjects for each participant.
+
+**Boag et al. (2025) Design Factors**
+
+-   *Stimulus Type*: Conflict, Nonconflict, or PM
+-   *PM Block*: Control or PM
+-   *Automation Block*: Manual (Unaided) or Automation (Aided)
+-   *Automation Accuracy*: Correct or Incorrect
+
+Below is the data set that will be analysed. It contains standard EMC2 columns, such as subjects,
 R for response (C= conflict, N= non-conflict, P=PM), and rt.
 
 Also, design-specific columns:
 
+-   `S` for stimulus type (cc=conflict, nn=nonconflict, pc= PM target, conflict, pn= PM target, nonconflict)
 -   `auto`: Did participants have an automated decision aid in that
     block(auto) or not (manual)?
 -   `failtrial`: Did the automated advice recommend a correct decision
@@ -98,24 +251,35 @@ head(dat)
 
 ## Contrasts
 
-Generally, accumulation-rate contrasts are similar to PMDC except that automation-informed contrasts are added in automation blocks:
--  automation excitation is added to rates agreeing with automated advice (e.g., the matching accumulation rate when
-automation is correct)
--  automation inhibition is subtracted from rates disagreeing with automated advice (e.g., the matching 
-accumulation rate when automation is incorrect)
+Having outlined the design, the next step is to formalize how the theoretical mechanisms
+are represented.  
+To instantiate PM and automation-use mechanisms, we specify a set of mapping contrasts 
+that translate each experimental combination of PM and automation conditions into corresponding evidence-accumulation rates.  
 
-These contrasts are additional to the PM inhibition that is subtracted from ongoing task accumulation rates on PM target trials.
+As discussed in the manuscript, the idea is that the effects of automation and PM inputs sum. 
+For example, an accumulation
+rate could be increased by automation-excitation when it is congruent with automated advice,
+but simultaneously reduced if inhibited due to the presence of PM target inputs: 
 
- Unlike the last example,
-ongoing-task accumulation rates are not specified in terms of "quality"
-and "urgency" here, for simplicity. However, they could have been specified that way. 
+ - OTmatch, Automation Congruent, PM trial = v[OTmatch] + E_Auto - I_PM
+
+The full set of mapping contrasts are demonstrated below.
+
 
 ```{r}
+#The combined automation-PM contrast matrix, mapped to Boag et al.'s design
+#Removing rows that doesn't practically arise in design for better print
 print_full_v_cm <- full_v_cm[apply(full_v_cm, 1, function(row) any(row != 0)), ]
+#Print each mapping contrast
 for(i in rownames(print_full_v_cm )){
   print(read_rows(print_full_v_cm , i))
 }
 ```
+
+As with previous PMDC example, the possibility of proactive control over thresholds is included
+(larger thresholds in PM than control blocks).
+Furthermore, this proactive control is allowed to differ across conditions where participants
+perform the task manually versus when they work with automated advice.
 
 In this example, proactive control over thresholds will also be coded
 using contrasts, rather than included as linear-model effects. It would also 
@@ -136,43 +300,52 @@ for(i in rownames(print_Proactivecm_auto)){
 ## Model Specification
 
 
-We now demonstrate how to specify a model for this data set. It is similar to the
-first example, but requires including extra factors. 
+We now demonstrate how to specify Boag et al. (2025)'s model and fit it to real data. 
+We start by looking at the input to the design function. This is similar to the
+first automation example, but requires the mapping contrasts specified above and different
+custom factors. 
 
 ```{r results='hide'}
 
+#Accuracy function: Checking whether accumulator matches stimulus type
 match_fun <- function(d)
   as.character(substr(d$S,1,1)) == tolower(
     as.character(d$lR)
   )
 
 design_advanced <- design(model=LBA, 
-                          # The applied data set
+                          # The applied data set (Boag et al., 2025)
                           data=dat,
                           # The relevant factors for contrasts will match the 
                           # row names in the contrast matrices.
                           functions=list(
+                          # An SlR factor here similar to previous examples,
+                          # but including both automation and PM factors
                             SlR=function(d) factor(paste0(d$lR, d$S, d$AM, d$fail, d$PM),
                                                    levels=rownames(full_v_cm)),
+                          # Also a PMlR factor added for the
+                          # proactive control model
                             PMlR=function(d) factor(paste0(d$lR, d$PM, d$AM),
                                                     levels=rownames(Proactivecm_auto)),
-                            # Special "RACE" factor which will be used to deal with
-                            # the fact that PM has different number of accumulators to control
+                          # Special "RACE" factor which will be used to deal with
+                          # the fact that PM has different number of accumulators to control
                             RACE=function(d)factor(ifelse(d$PM=="control",2,3))
                           ),
                           # Supplying the contrast matrices
                           contrasts = list(SlR=full_v_cm, PMlR =Proactivecm_auto),
                           matchfun=match_fun,
-                          # Specifying how parameters vary, in this case by contrast matrices
+                          # Specifying how parameters vary by linear model formulae,
+                          # similar to other examples
                           formula=list(v~SlR,B ~ PMlR,A ~ 1,t0 ~ 1,sv ~ lM),
                           # Appropriate constants
                           constants=c(sv=log(1),v=0, B=log(1))
 )
 ```
 
-Setup a p_vector containing naive prior means
-
+Next, we set up a prior which will be used for parameter estimation. 
 ```{r}
+
+#Setup a p_vector containing naive prior means
 p_vector <- sampled_pars(design_advanced)
 p_vector[grepl("B", names(p_vector))] <- log(1)
 p_vector[grepl("inh", names(p_vector))] <- 0
@@ -184,6 +357,7 @@ p_vector[grepl("t0", names(p_vector))] <- log(0.4)
 n_vs <- length(p_vector[grepl("^v", names(p_vector))])
 n_Bs <- length(p_vector[grepl("B", names(p_vector))])
 
+#A vector of standard deviations to record uncertainty (larger sd means more uncertain)
 psd=c(
   #drifts
   rep(2,n_vs),
@@ -196,10 +370,13 @@ psd=c(
 
 ```
 
-Create prior and then save the sampler object for later use
-
+Create EMC2's prior object. Then merge with data to make an emc sampler object,
+and save off. Sampling is dispatched at the command line in another script (*run_fit.R*).
+ 
 ```{r eval=FALSE}
+#Create prior object
 prior_advanced  <- prior(design_advanced,mu_mean=p_vector, mu_sd=psd)
+#Create emc sampler
 emc <- make_emc(dat, design_advanced, prior=prior_advanced)
 #save(emc,file="samples/sampler_advanced.RData")
 ```
@@ -222,12 +399,16 @@ account for the advanced data set.
 These sub-model constraints are implemented by setting parameters to
 a constant, but could equally be created by re-specifying contrasts
 
+For brevity, comments outlining functionality that has already been explained
+in the full model code chunk above are not repeated for the nested models.
 
 ##### **No PM inhibition**
 
 No PM-inhibition mechanism for either auto or manual conditions. Set the PM inhibition parameters to 0.
 
 ```{r results='hide'}
+
+# Similar arguments as the full model, except for constants.
 design_advanced_noPMinh <- design(model=LBA, 
                                   data=dat,
                                   functions=list(
@@ -241,13 +422,18 @@ design_advanced_noPMinh <- design(model=LBA,
                                   matchfun=match_fun,
                                   formula=list(v~SlR,B ~ PMlR,A ~ 1,t0 ~ 1,sv ~ lM),
                                   constants=c(sv=log(1),v=0, B=log(1),
+                                              #Fixing PM inhibition to 0.
                                               v_SlRMANPMinh=0,
                                               v_SlRAUTOPMinh=0
                                   )
 )
 
+#Creating a p vector with appropriate parameters for pop mean priors, based
+# on previous p vector
 p_vector_noPMinh <-
   p_vector[!names(p_vector) %in% c("v_SlRMANPMinh", "v_SlRAUTOPMinh")]
+
+#Creating a psd with appropriate parameters, indexing uncertainty in pop means
 n_vs_noPMinh <- length(p_vector_noPMinh[grepl("^v", names(p_vector_noPMinh))])
 n_Bs_noPMinh <- length(p_vector_noPMinh[grepl("B", names(p_vector_noPMinh))])
 
@@ -289,6 +475,8 @@ design_advanced_noproactive <- design(model=LBA,
                                       matchfun=match_fun,
                                       formula=list(v~SlR,B ~ PMlR,A ~ 1,t0 ~ 1,sv ~ lM),
                                       constants=c(sv=log(1),v=0, B=log(1), 
+                                                  #Fixing proactive control effects
+                                                  # to 0
                                                   B_PMlRmanualpaC=log(1),
                                                   B_PMlRmanualpaN=log(1),
                                                   B_PMlRautopaC=log(1),
@@ -326,7 +514,7 @@ emc <- make_emc(dat, design_advanced_noproactive, prior=prior_advanced_noproacti
 
 ##### **No Automation Use Mechanisms**
 
-Exclude automation-use mechanisms by fixing such parameters to 0.
+Exclude automation-use mechanisms by fixing its parameters to 0.
 
 ```{r results='hide'}
 design_advanced_noauto <- design(model=LBA, 
@@ -342,6 +530,7 @@ design_advanced_noauto <- design(model=LBA,
                                  matchfun=match_fun,
                                  formula=list(v~SlR,B ~ PMlR,A ~ 1,t0 ~ 1,sv ~ lM),
                                  constants=c(sv=log(1),v=0, B=log(1),
+                                  #Fixing automation-use mechanisms to 0.           
                                              v_SlRPMAUTOex = 0, v_SlRPMAUTOinh =0,
                                              v_SlRcontrolAUTOex = 0, v_SlRcontrolAUTOinh =0
                                  )
@@ -375,34 +564,39 @@ emc <- make_emc(dat, design_advanced_noauto, prior=prior_advanced_noauto)
 #save(emc,file="samples/sampler_advanced_noauto.RData")
 ```
 
-## Model Evaluation
+## Model Assessment
 
-Model workflow often involves a break for fitting times. Reload necessary
-functions. Tidyverse functions for summarizing data, predictions and plotting.
+Having setup and sampled all the previous models, we now use this as an opportunity
+to illustrate model assessment in a complex example.
+
+Model workflow often involves a break for fitting times, and so it is likely
+this code might be run in a separate session. Code below to reload necessary
+functions. Also, some tidyverse functions for summarizing data, predictions and plotting.
+
+This custom code takes data and posterior predictives and
+create summaries for fit plots. Although EMC2 also provides such functions, 
+here we use illustrate how to 
+apply some simple bespoke code to EMC2 outputs, giving results in 
+line with Boag et al. (2025).
+
+### Load
 
 ```{r}
+#Packages and utility functions
 library(tidyr)
 library(dplyr)
 library(ggplot2)
 library(EMC2)
-theme_set(theme_bw())
 source("utility_functions.R")
+#ggplot 2: set the theme for plots
+theme_set(theme_bw())
+#Contrast matrices used in the Boag et al. (2025) models, re-called during
+# simulate
 load("img/exinhcm_PM.RData")
 load("img/Proactivecm_auto.RData")
 ```
 
-Load some utility functions not packaged in EMC but helpful for
-summarizing output
-
--   Specifically, functions that take data and posterior predictives and
-    create summaries for fit plots
--   EMC2 also has some built-in options, but the options here make plots
-    most consistent with previous publications of the PMDC model
-
-
-Load the top model and reload the necessary contrast matrices. Check the 
-top model converged adequately. 
-
+Below loads samples from the most complex "top" model.
 ```{r}
 fit_advanced <- get(load("samples/sampler_advanced.RData"))
 ```
@@ -410,24 +604,27 @@ fit_advanced <- get(load("samples/sampler_advanced.RData"))
 
 #### **Evaluate Posterior Predictive Fit**
 
-Get posterior predictives using EMC2's predict method. Save (can be slow and better
-to dispatch multi-core).
+Get posterior predictives using EMC2's predict method and save. Commented out because
+predict can take some time and be better
+to dispatch multi-core. Predictions were provided in the samples folder on OSF.
 ```{r eval=FALSE}
+#Check the model converged ok (it did)
 check(fit_advanced)
-pp <- predict(fit_advanced, n_cores=1)
+#Get posterior predictives (somewhat slow)
+# pp <- predict(fit_advanced, n_cores=1)
 dat <- get_data(fit_advanced)
 #save(pp, dat, file= "samples/predicted_advanced.RData")
 ```
 
-
+Load up the prepared posterior predicitves.
 ```{r}
 load("samples/predicted_advanced.RData")
 ```
 
 EMC2 provides summary and plotting functions. However, is it also straightforward
-to extract data and posterior predictives to specify custom plots, each are provided
-simply as data frames. Here, we aim to 
-produce plots consistent with Boag et al. (2025). To that end, a non-EMC2 utility function,
+to extract data and posterior predictives (as data frames) as a basis for specifying custom plots. 
+Here, we aim to 
+produce plots consistent with Boag et al. (2025). To that end, a bespoke utility function,
 `calc_stat_postfit` takes `dat` and `pp` extracted from the EMC2 fit and summarizes
 based on a provided function.
 
@@ -438,15 +635,23 @@ By default, the grouped data frame is examined, providing information about aver
 "subjects" column can also be applied to look at individual participants.
 
 ```{r}
+
+# The bespoke calc_stat_postfit (from utility_functions.R) can calculate 
+# any summary function and apply to data
+# as well as each posterior predictive. Below do so for an accuracy function
 acc_fun <- function(S, R){
   mean(substr(S,1,1)==tolower(R))
 }
 
+#Provide observed data (dat), posterior predictives (pp), factors to aggregate
+# over (facs), the function to apply (stat_fn), and columns necessary to calculate
+# the function (stat_cols)
 acc_df <- calc_stat_postfit(dat, pp, facs=c("S", "AM", "fail", "PM"),
                             stat_fn=acc_fun,
                             stat_cols=c("S","R")
 )
 
+#Relabel a factor for nicer look on plots
 acc_df$AM_fail <- factor(
   paste0(acc_df$AM, acc_df$fail),
   levels=c( "manualAC", "autoAC","autoAI"),
@@ -472,25 +677,39 @@ As plotted below, fits to both PM and ongoing-task accuracy look quite good. Fit
 the Boag et al. (2025) paper, which specified a more complex model.
 
 ```{r}
+#dplyr pipe to filter out PM stimuli, followed by ggplot syntax to plot
+#AM_fail specifies x axis and postmn_stat y
 acc_df %>% filter(S %in% c("cc","nn")) %>% ggplot(aes(AM_fail, postmn_stat)) +
-  geom_point(size=3)+ geom_errorbar(aes(ymax = upper, ymin = lower), width=0.5) +
-  geom_line(aes(group=1), linetype=2)+
+  #Add data as oen circles
+  geom_point(size=3)+ 
+  #Add model prediction points as filled circles (posterior mean)
   geom_point(aes(y= stat), pch=21, size=4, colour="black")+
-  facet_grid(S~PM)  +ylab("Correct RT") +xlab("Automation") +ylab("Accuracy")+
+  #Lines connecting model predictions
+  geom_line(aes(group=1), linetype=2)+
+  #Error bars for credible intervals
+  geom_errorbar(aes(ymax = upper, ymin = lower), width=0.5) +
+  #A grid where stimulus type is faceted vertically, and PM condition horizontally
+  # Plus labels for axes
+  facet_grid(S~PM) +xlab("Automation") +ylab("Accuracy")+
+  #Some adjustments to text size and y axis range
   theme(text = element_text(size = 22), axis.text=element_text(size=15))+ylim(0.5,1)
 ```
 
 ```{r}
+#Similar syntax to above, except filtering FOR PM trials. No control
+# conditions needed here so changing up to facet by PM trial type (conf/nonconf) 
+# rather than
+# by PM/control
 acc_df %>% filter(!S %in% c("cc","nn")) %>% ggplot(aes(AM_fail, postmn_stat)) +
   geom_point(size=3)+ geom_errorbar(aes(ymax = upper, ymin = lower), width=0.5) +
   geom_line(aes(group=1), linetype=2)+
   geom_point(aes(y= stat), pch=21, size=4, colour="black")+
-  facet_grid(.~S)  +ylab("Correct RT") +xlab("Automation") +ylab("Accuracy")+
+  facet_grid(.~S) +xlab("Automation") +ylab("Accuracy")+
   theme(text = element_text(size = 22), axis.text=element_text(size=15)) +ylim(0.5,1)
 ```
 
 For RT, we wish to examine three aspects of RT distribution: 0.1 quantile,
-median (0.5 quantile), and 0.9 quantile. This gives an indiciation of distributional 
+median (0.5 quantile), and 0.9 quantile. This gives an indication of distributional 
 fit. Another non-EMC2 convenience function `stack_stats_postfits` can apply 
 to get multiple summaries of data simultaneously and bind to a data frame.
 
@@ -504,19 +723,26 @@ Requires:
 -   Names of the resulting statistics for the outputted data frame
 
 ```{r}
+
+#The list of functions which will summarize data
 corRT_fn_list <- c(function(S, R, rt){quantile(rt[toupper(substr(S,1,1))==R], probs=0.1, na.rm=T)},
                    function(S, R, rt){quantile(rt[toupper(substr(S,1,1))==R], probs=0.5, na.rm=T)},
                    function(S, R, rt){quantile(rt[toupper(substr(S,1,1))==R], probs=0.9, na.rm=T)}
 )
 
+#The columns required by the functions
 cols <- c("S", "R", "rt")
+# Supplied as a list, one entry for each function
 stat_col_list <- list(cols,cols,cols)
+#Names for outputs
 stat_fn_names <- c("0.1", "0.5", "0.9")
 
+#Function calc using data, pp, factors, functions, columns, and output names
 cRT_df <- stack_stat_postfits(
   dat, pp, facs=c("S", "AM", "fail", "PM"), corRT_fn_list, stat_col_list, stat_fn_names
 ) 
 
+#Relabel AM_fail for nicer plot
 cRT_df$AM_fail <- factor(
   paste0(cRT_df$AM, cRT_df$fail),
   levels=c( "manualAC", "autoAC","autoAI"),
@@ -527,13 +753,18 @@ Plots below show good distributional fits to correct RT, other than a small miss
 on the 0.9 quantile for the rare PM response times.
 
 ```{r}
+#Similar dplyr/ggplot syntax as previous examples, except there are now
+# lines connecting points for each quantile
+#Starting with non-PM trials
 cRT_df %>% filter(S %in% c("cc","nn")) %>%  ggplot(aes(AM_fail, postmn_stat)) +
   geom_point(size=3)+ geom_errorbar(aes(ymax = upper, ymin = lower), width=0.5) +
+  #Lines below connect group by quantiles ("nam" generic output of the function above)
   geom_line(aes(group=nam), linetype=2)+
   geom_point(aes(y= stat), pch=21, size=4, colour="black")+
   facet_grid(S~PM)  +ylab("Correct RT")  +xlab("Automation")+
   theme(text = element_text(size = 22), axis.text=element_text(size=15))
 
+#Followed by PM trials
 cRT_df %>% filter(!S %in% c("cc","nn")) %>%  ggplot(aes(AM_fail, postmn_stat)) +
   geom_point(size=3)+ geom_errorbar(aes(ymax = upper, ymin = lower), width=0.5) +
   geom_line(aes(group=nam), linetype=2)+
@@ -575,12 +806,14 @@ eRT_df %>% filter(S %in% c("cc","nn")) %>% ggplot(aes(AM_fail, postmn_stat)) +
 
 #### **Model Comparison**
 
-Test whether the model structure can be simplified. Smaller DIC/BPIC suggest
-a better fit to that model. DIC/BPIC also help to determine the relative contributions of different
+After determining that the top model can fit the data, here we test whether 
+the model structure can be simplified. Smaller DIC/BPIC supports selection a model. 
+DIC/BPIC also help to determine the relative contributions of different
 mechanisms to overall fit - larger differences in favour of a model suggest a stronger preference.
 
 
 ```{r}
+#Load alternative models with mechanisms excluded
 fit_advanced_noauto <- 
   get(load("samples/sampler_advanced_noauto.RData"))
 fit_advanced_noPMinh <- 
@@ -597,15 +830,18 @@ check(fit_advanced_noproactive)
 ```
 
 
-Below uses EMC2's compare function to examine whether dropping mechanisms is supported.
+Below we use EMC2's compare function to examine whether dropping mechanisms is supported.
 Both DIC and BPIC suggest that the top model, with full PM and
 automation-use mechanisms, is most supported. Thus, all the
 included mechanisms are useful for predicting the data.
 
 Bayes Factors could also have been calculated *by setting BayesFactor=TRUE), but they would require 
-more posterior samples and were not used by Boag et al. (2025). S,o we have not done so here.
+more posterior samples and were not used by Boag et al. (2025). 
 
 ```{r}
+#Usage of EMC2's compare function:
+# A list of samples to be compared, and specifying that no Bayes Factors
+# should be calculated
 out <- compare(list(
   top = fit_advanced,
   noPMinh = fit_advanced_noPMinh,
@@ -613,6 +849,7 @@ out <- compare(list(
   noauto = fit_advanced_noauto
 ), BayesFactor = FALSE)
 
+#Rebase the DIC and BPIC values so that the minimum is 0
 out$DIC <- out$DIC - out$DIC[1]
 out$BPIC <- out$BPIC - out$BPIC[1]
 out
@@ -620,7 +857,7 @@ out
 
 #### **Model Parameter Summaries**
 
-Summarise the model parameters to understand the underlying mechanisms implied.
+Having selected a most-preferred model, summarise the parameters to understand the underlying mechanisms implied.
 
 1.  Extract population mean parameters from the full model
 2.  Plot the posterior means/ 95% credible intervals
@@ -628,10 +865,15 @@ Summarise the model parameters to understand the underlying mechanisms implied.
 
 EMC2's get_pars function extracts parameters, here we focus on 'mu' (population means).
 ```{r}
+#Give get_pars the required samples, ask for mu, merge_chains puts everything
+# together rather than separating the samples for the different chains run
+# during sampling
 params <- data.frame(
   get_pars(fit_advanced, selection="mu", merge_chains = T)$mu[[1]]
 )
 ```
+
+##### Excitation and Inhibition
 
 First, examine the excitation and inhibition mechanisms, both involving
 automation and the PM task. 
@@ -642,6 +884,10 @@ This reveals:
 -  excitation strategy strong in control conditions, but not PM condition
 
 ```{r}
+# Use some dplyr and tidyr here to summarize samples. First take the samples
+# to a long-form data frame with pivot longer, each parameter name
+# being defined in a column. Then summarize for each parameter posterior mean
+# and 95% credible intervals.
 param_summaries <- params %>% pivot_longer(cols=colnames(params)) %>% 
   group_by(name) %>% 
   summarize(mn=mean(value), 
@@ -649,8 +895,10 @@ param_summaries <- params %>% pivot_longer(cols=colnames(params)) %>%
             p975=quantile(value, probs=0.975)
   )
 
+#Select the subset of excitation and inhibition parameters
 exinh <- param_summaries  %>% filter(grepl(".*[ex|inh]$", name))
 
+#Give them nice names
 exinh$name <- c("PM inhibition, auto condition", 
                 "PM inhibition, manual condition",
                 "Automation excitation, PM condition",
@@ -659,30 +907,44 @@ exinh$name <- c("PM inhibition, auto condition",
                 "Automation inhibition, control condition"
 )
 
+#Plot them
 exinh  %>% 
+  #Here putting the parameter names on x axis and values on y, but will flip at end
   ggplot(aes(x=name, y=mn, ymin=p025, ymax=p975))+
   ylab("Effect")+ xlab("") +
+  #Geom_pointrange for the type of plot we are after (except we will flip it)
   geom_pointrange()+ 
   geom_hline(yintercept=0, lty=2) +  # add a dotted line at x=1 after flip
+  #Do the flip and adjust text
   coord_flip() +
   theme(text = element_text(size = 18))
 
 
 ```
 
-Calculating Bayesian p-value (posterior sample density <0) and 
+Having visualized the excitation and inhibition parameters, now evaluate the
+strength and support for the effects and compare them. We do so by calculating 
+Bayesian p-value (posterior sample density <0) and 
 Savage-Dickey test (Bayes Factor of alternative vs null of 0) using EMC2's
 `credible` and `hypothesis` functions. 
-set.seed because there is some noise in sampling from the prior.
+
 ```{r results='hide', fig.show = "hide"}
 
+#set.seed so that the Bayes Factor approximations are always the same,
+# as they involve sampling from the prior
 set.seed(1234)
+
+#Use EMC2's credible function to get Bayesian p-value. Supply samples,
+# the name of the parameter.
 PMInh_auto_p <- attr(
   credible(x = fit_advanced, x_name = "v_SlRAUTOPMinh"), "less"
 )
+
+#Use EMC2's hypothesis function to get Savage-Dickey Bayes Factor. Supply samples,
+# the name of the parameter.
 PMInh_auto_SD <- hypothesis(fit_advanced, parameter="v_SlRAUTOPMinh",  do_plot = F)
 
-
+#Same for other parameters below.
 PMInh_man_p <- attr(
   credible(x = fit_advanced, x_name = "v_SlRMANPMinh"), "less"
 )
@@ -711,12 +973,15 @@ AutoEx_control_p <- attr(
 )
 AutoEx_control_SD <- hypothesis(fit_advanced, parameter="v_SlRcontrolAUTOex",  do_plot = F)
 
-#Differences are more complex so use bigger N
+#Now look at differences in parameters.
+#For credible, supply a function (x_fun) rather than an x name to look at differences
 PM_control_AutoInh_p <- attr(
   credible(x = fit_advanced, x_fun = function(d) d["v_SlRPMAUTOinh"]
          - d["v_SlRcontrolAUTOinh"]),
   "less"
 )
+
+#Similarly, for hypothesis, provide a function (fun) rather than a parameter
 PM_control_AutoInh_SD <- hypothesis(
   fit_advanced, fun=function(d) d["v_SlRPMAUTOinh"]
            - d["v_SlRcontrolAUTOinh"], do_plot = F)
@@ -732,6 +997,7 @@ PM_control_AutoEx_SD <- hypothesis(fit_advanced, fun= function(d)
 
 
 ```{r}
+#Put together some nice names for the things we just calculated
 
 effnames <- c("PM inhibition, manual", "PM inhibition, auto",
               "Auto inhibition, PM", "Auto inhibition, control",
@@ -739,6 +1005,7 @@ effnames <- c("PM inhibition, manual", "PM inhibition, auto",
               "Auto inhibition, PM - Auto inhibition, control",
               "Auto excitation, PM - Auto excitation, control")
 
+#Bind together the Bayesian p-values and Savage-Dickey Bayes Factors
 ps <- c(PMInh_auto_p, PMInh_man_p,AutoInh_PM_p, AutoInh_control_p,
         AutoEx_PM_p, AutoEx_control_p, PM_control_AutoInh_p, 
         PM_control_AutoEx_p)
@@ -747,12 +1014,17 @@ SDs <- c(PMInh_auto_SD, PMInh_man_SD,AutoInh_PM_SD, AutoInh_control_SD,
         AutoEx_PM_SD, AutoEx_control_SD, PM_control_AutoInh_SD, 
         PM_control_AutoEx_SD)
 
+#Place everything in a data frame for a quick look and print it
 df <- data.frame(Effect=effnames, p=round(ps, 3), SD= round(SDs, 3))
 
 df
 
 ```
-Now examine proactive control. 
+
+
+##### Proactive Control
+
+Now we examine proactive control using similar techniques to above. 
 This reveals:
 - strong proactive control of both accumulators in both conditions
 - weak tendency to less control in automation conditions
@@ -846,22 +1118,33 @@ df
 
 ```
 
+As discussed in text, the proactive control calculated above was on the 
+estimated scale, rather than on mapped parameters. As thresholds are mapped from the
+log scale, this implies multiplicative rather than additive effects. To examine
+proactive control on the natural scale, we can use "mapped" parameters and then
+calculate proactive control effects post-hoc. Below, we show how to do so.
+
 New proactive control plot and new p-values (~0.01, ~0.02 for conflict and non-conflict,
 respectively).
 
 ```{r}
 set.seed(1234)
 
+#Extract mapped parameter values here, rather than estimated values. The key
+# argument is map=T
 params_mapped <- data.frame(
   get_pars(fit_advanced, selection="mu", merge_chains = T, map=T)$mu[[1]]
 )
 
+#Calculate proactive control effects from the mapped estimates for both
+# auto and manual conditions
 params_mapped$ProAC <- params_mapped$B_PMlRCPMauto - params_mapped$B_PMlRCcontrolauto 
 params_mapped$ProAN <- params_mapped$B_PMlRNPMauto - params_mapped$B_PMlRNcontrolauto 
 
 params_mapped$ProMC <- params_mapped$B_PMlRCPMmanual - params_mapped$B_PMlRCcontrolmanual 
 params_mapped$ProMN <- params_mapped$B_PMlRNPMmanual - params_mapped$B_PMlRNcontrolmanual
 
+#Calculate the differences in proactive control across manual and auto conditions
 params_mapped$ProMAC <- params_mapped$ProMC - params_mapped$ProAC 
 params_mapped$ProMAN <- params_mapped$ProMN - params_mapped$ProAN 
 
@@ -894,40 +1177,32 @@ proactive  %>%
   coord_flip() 
 
 
-#Get p-values and Bayes Factors for the mapped, transformed values
+#Get mapped parameter names 
+# colnames(params_mapped)[grepl("B_",colnames(params_mapped))]
+
+# Get p-values for the mapped, transformed parameters to examine effect
+# on the natural scale.
+# This involves similar calls to credible as earlier, except
+# we are supplying map=T and looking at post-estimated natural-scale proactive
+# control.
 additive_ProManAutoC_p <-  attr(credible(x = fit_advanced, x_fun = function(d) (
- 
-  (exp(d["B_PMlRmanualC"] +d["B_PMlRmanualpaC"])- exp(d["B_PMlRmanualC"]))  
-  - (exp(d["B_PMlRautoC"] +d["B_PMlRautopaC"]) -exp(d["B_PMlRautoC"]))
-  )
-), "less"
+  #Proactive Manual (natural scale)
+  (d["B_PMlRCPMmanual"]- d["B_PMlRCcontrolmanual"])  
+  #Proactive Auto (natural scale)
+  - (d["B_PMlRCPMauto"]- d["B_PMlRCcontrolauto"]) 
+    ), map=T
+  ), "less"
 )
 
-additive_ProManAutoC_SD <-  hypothesis(fit_advanced, fun = function(d) (
- 
-  (exp(d["B_PMlRmanualC"] +d["B_PMlRmanualpaC"])- exp(d["B_PMlRmanualC"]))  
-  - (exp(d["B_PMlRautoC"] +d["B_PMlRautopaC"]) -exp(d["B_PMlRautoC"]))
-  ),  do_plot = F
-)
-
-additive_ProManAutoC_SD 
-  
 additive_ProManAutoN_p <-  attr(credible(x = fit_advanced, x_fun = function(d) (
- 
-  (exp(d["B_PMlRmanualN"] +d["B_PMlRmanualpaN"])- exp(d["B_PMlRmanualN"]))  
-  - (exp(d["B_PMlRautoN"] +d["B_PMlRautopaN"]) -exp(d["B_PMlRautoN"]))
-  )
-), "less"
+  #Proactive Manual (natural scale)
+  (d["B_PMlRNPMmanual"]- d["B_PMlRNcontrolmanual"])  
+  #Proactive Auto (natural scale)
+  - (d["B_PMlRNPMauto"]- d["B_PMlRNcontrolauto"]) 
+    ), map=T
+  ), "less"
 )
 
-additive_ProManAutoN_SD <-  hypothesis(fit_advanced, fun = function(d) (
- 
-  (exp(d["B_PMlRmanualN"] +d["B_PMlRmanualpaN"])- exp(d["B_PMlRmanualN"]))  
-  - (exp(d["B_PMlRautoN"] +d["B_PMlRautopaN"]) -exp(d["B_PMlRautoN"]))
-  ),  do_plot = F
-)
-
-additive_ProManAutoN_SD
 
 
 ```
